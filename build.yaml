@@ -1,0 +1,103 @@
+# BITBUCKET_USER=<user> BITBUCKET_TOKEN=<token> ansible-playbook build.yaml
+---
+- name: Build foam-extend apptainer containers
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Apptainer version check
+      command: apptainer --version
+      register: apptainer_version_output
+      changed_when: false
+    - name: A supported apptainer version is installed
+      assert:
+        that:
+          - apptainer_version_output.stdout.split(' ')[2] is version("1.3.1", ">=")
+        fail_msg: "Apptainer version is not 1.3.1 or later"
+
+    - name: Foam-Extend versions defined
+      set_fact:
+        fe_versions:
+          - "5.0"
+    - name: Foam-Extend branches defined
+      set_fact:
+        fe_branches:
+          - "master"
+    - name: Ubuntu versions defined
+      set_fact:
+        ubuntu_versions:
+          - "24.04"
+    - name: OpenMPI versions defined
+      set_fact:
+        ompi_versions:
+          - "4.1.5"
+
+    - name: Check if foam-extend containers exist
+      stat:
+        path: "fe-{{ item.1 }}-{{ item.2 }}-ubuntu-{{ item.0 }}-ompi-{{ item.3 }}.sif"
+      register: container_stat
+      loop: "{{ ubuntu_versions|product(fe_versions,fe_branches,ompi_versions) | list }}"
+      delegate_to: localhost
+      check_mode: no
+    - name: Build foam-extend containers
+      command: apptainer build
+                --warn-unused-build-args
+                --build-arg UBUNTU_VERSION={{ item.0 }}
+                --build-arg FE_VERSION={{ item.1 }}
+                --build-arg FE_BRANCH={{ item.2 }}
+                --build-arg OMPI_VERSION={{ item.3 }}
+                fe-{{ item.1 }}-{{ item.2 }}-ubuntu-{{ item.0 }}-ompi-{{ item.3 }}.sif
+                foam-extend.def
+      loop: "{{ ubuntu_versions|product(fe_versions,fe_branches,ompi_versions) | list }}"
+      when: not container_stat.results[idx].stat.exists
+      loop_control:
+        index_var: idx
+      async: 10800
+      poll: 0
+      register: async_result
+    - name: All foam-extend container build tasks have been completed
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ async_result.results }}"
+      when: item.changed
+      register: async_status_result
+      until: async_status_result.finished
+      retries: 180
+      delay: 60
+    
+    - name: Projects to be built are looked up
+      set_fact:
+        projects: "{{ query('fileglob', 'projects/*.def') | map('basename') | map('regex_replace', '\\.def$', '') | list }}"
+
+    - name: Projects to be built are shown
+      debug:
+        var: 
+          projects
+
+    - name: Build project containers
+      command: apptainer build
+                --warn-unused-build-args
+                --build-arg UBUNTU_VERSION={{ item.0 }}
+                --build-arg FE_VERSION={{ item.1 }}
+                --build-arg FE_BRANCH={{ item.2 }}
+                --build-arg OMPI_VERSION={{ item.3 }}
+                --build-arg REPO_USER={{ lookup('env', 'BITBUCKET_USER') }}
+                --build-arg REPO_TOKEN={{ lookup('env', 'BITBUCKET_TOKEN') }}
+                --force
+                {{ item.4 }}-fe-{{ item.1 }}-{{ item.2 }}-ubuntu-{{ item.0 }}-ompi-{{ item.3 }}.sif
+                projects/{{ item.4 }}.def
+      loop: "{{ ubuntu_versions|product(fe_versions,fe_branches,ompi_versions,projects) | list }}"
+      async: 10800
+      poll: 0
+      register: async_result
+    - name: All project container build tasks have been completed
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ async_result.results }}"
+      when: item.changed
+      register: async_status_result
+      until: async_status_result.finished
+      retries: 30
+      delay: 60
