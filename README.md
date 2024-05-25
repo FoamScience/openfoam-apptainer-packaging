@@ -44,16 +44,26 @@ can test it out like so:
 ```bash
 # Your host must have OpenMPI as the activate MPI implementation
 # Matching the 4.1.5 version is probably optional but recommended; build the container with your version!
-# but PMI2 / PMIx support must be the same
+# It's also good practice to share process namespaces with --sharens
+
+# MAKE SURE foam-extend is not sourced for the bash instance you run this with
 
 # Test a simple MPI application
-mpirun -n 2 apptainer run -C testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif /opt/OMPIFoam/ompiTest
+mpirun -n 2 apptainer run --sharens testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/ompiTest'
+apptainer run -C testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/ompiTest'
+
+# Previous check must say (twice):
+# Hello, I am rank 0/2
+# Hello, I am rank 1/2
 
 # Test an OpenFOAM application
-mpirun -np 2 apptainer run -C --cwd /opt/OMPIFoam testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/testOMPIFoam -parallel'
+mpirun -n 2 apptainer run --cwd /opt/OMPIFoam --sharens testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/testOMPIFoam -parallel'
 # should give same output as:
-apptainer run -C --cwd /opt/OMPIFoam testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -np 2 /opt/OMPIFoam/testOMPIFoam -parallel'
+apptainer run -C --cwd /opt/OMPIFoam testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/testOMPIFoam -parallel'
 ```
+> [!IMPORTANT]
+> It's important not to pass `-C` (isolates container environment) when running MPI applications from the container since
+> the containers use a hybrid approach using both the host's OpenMPI installation and the container's one.
 
 ## Notes for container building
 
