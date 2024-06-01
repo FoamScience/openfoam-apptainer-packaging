@@ -5,68 +5,29 @@
 
 ## Idea
 
-- Build a base `foam-extend` container to run on HPC
-- pickup any definitions from `projects` folder to build project-specific containers
+- Build a base `OpenFOAM` container (supporting different forks) to run on HPCs
+- pickup any definitions from `projects-<openfoam-fork>` folder to build project-specific containers
   based on the base container
 
-## Instructions
+## Quick Instructions
 
 ```bash
 sudo add-apt-repository -y ppa:apptainer/ppa
 sudo apt install -y apptainer
 pip install ansible
-BITBUCKET_USER=<your_user> BITBUCKET_TOKEN=<your_token> ansible-playbook build.yaml
+ansible-playbook build.yaml
 ```
 
 > [!NOTE]
 > `ansible` is a nice tool to automate builds and make sure your host system has the required
 > dependencies to be able to build the containers.
 
-By default, the playbook builds a single foam-extend container with the following versions:
-- Ubuntu: 22.04
-- Foam-extend: 5.0
-- Foam-extend branch: master
-- OpenMPI: 4.1.5
-and it will be called `fe-5.0-master-ubuntu-22.04-openmpi-4.1.5.sif`.
+The ansible command will:
+- Build two intermediary OpenMPI containers (for ubuntu `22.04` and `24.04`).
+- Build the base OpenFOAM containers for `foam-extend`, OpenCFD OpenFOAM (`com-openfoam`),
+  and the foundation version (`org-openfoam`) for each OpenMPI container.
+- Build containers from the test definition files in `projects-<openfoam-fork>`
+- Note that, currently, there is no debian packages for OpenFOAM v11 on Ubuntu 24 so
+  the build matrix avoids this case.
 
-To build containers supporting more software versions, add the relevant versions to the definition facts in `build.yaml`.
-The playbook also demonstrates how custom project containers can be built by adding `*.def` files to the `projects` folder.
-
-> [!TIP]
-> By default, compiling Foam-Extend will use all available CPUs and if you add more software versions to support, the containers
-> will be built **in parallel**. You may want to delegate building some containers to other machines.
-
-## OpenMPI support
-
-The `build.yaml` playbook builds a test container which has a test OpenFOAM/MPI application compiled, you 
-can test it out like so:
-
-```bash
-# Your host must have OpenMPI as the activate MPI implementation
-# Matching the 4.1.5 version is probably optional but recommended; build the container with your version!
-# It's also good practice to share process namespaces with --sharens
-
-# MAKE SURE foam-extend is not sourced for the bash instance you run this with
-
-# Test a simple MPI application
-mpirun -n 2 apptainer run --sharens testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/ompiTest'
-apptainer run -C testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/ompiTest'
-
-# Previous check must say (twice):
-# Hello, I am rank 0/2
-# Hello, I am rank 1/2
-
-# Test an OpenFOAM application
-mpirun -n 2 apptainer run --cwd /opt/OMPIFoam --sharens testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/testOMPIFoam -parallel'
-# should give same output as:
-apptainer run -C --cwd /opt/OMPIFoam testOMPI-fe-5.0-master-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/testOMPIFoam -parallel'
-```
-> [!IMPORTANT]
-> It's important not to pass `-C` (isolates container environment) when running MPI applications from the container since
-> the containers use a hybrid approach using both the host's OpenMPI installation and the container's one.
-
-## Notes for container building
-
-- All building steps should carried out by "root" in global folders, eg. `/opt/`, `/usr/lib/`, etc.
-- When you run the container, your home folder is mounted, so do not use it for building software.
-- It's recommended to always `apptainer run -C` so you isolate your host environment in case you have Foam-Extend sourced there.
+Take a look at [docs.md](docs.md) for more details on building and using the containers.
