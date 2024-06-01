@@ -38,30 +38,15 @@ jobs:
           cp software_versions_example.yaml software_versions.yaml
           ansible-playbook build.yaml
 
-      - name: Run test MPI application with host MPI
+      - name: Run test MPI application with host and container MPIs
         run: |
-          mpi_out1=$(mpirun -n 2 apptainer run --sharens \
-            containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif \
-            '/opt/OMPIFoam/ompiTest')
-          echo "output1=$output1" >> $GITHUB_ENV
-
-      - name: Run test MPI application with container MPI
-        run: |
-          mpi_out2=$(apptainer run \
-            containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif \
-            'mpirun -n 2 /opt/OMPIFoam/ompiTest')
-          echo "output2=$mpi_out2" >> $GITHUB_ENV
-
-      - name: Compare MPI outputs
-        run: |
-          if [ "$output1" != "$output2" ]; then
+          mpi_out1=$(mpirun -n 2 apptainer run --sharens containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/ompiTest')
+          mpi_out2=$(apptainer run containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/ompiTest')
+          if [ "$mpi_out1" != "$mpi_out2" ]; then
             echo "Outputs are not identical"
-            echo "Output 1: $output1"
-            echo "Output 2: $output2"
+            echo "Output 1: $mpi_out1"
+            echo "Output 2: $mpi_out2"
             exit 1
           else
             echo "Outputs are identical"
           fi
-        env:
-          output1: ${{ env.output1 }}
-          output2: ${{ env.output2 }}
