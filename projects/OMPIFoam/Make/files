@@ -1,3 +1,0 @@
-testOMPIFoam.C
-
-EXE = /opt/OMPIFoam/testOMPIFoam
