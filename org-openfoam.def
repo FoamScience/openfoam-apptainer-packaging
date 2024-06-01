@@ -24,24 +24,26 @@ From: containers/ubuntu-{{ UBUNTU_VERSION }}-ompi-{{ OMPI_VERSION }}.sif
     apt-get update
     apt-get -y install --no-install-recommends software-properties-common
     add-apt-repository http://dl.openfoam.org/ubuntu
-    #apt-get update
-    #apt-get -y install --no-install-recommends openfoam{{ OF_VERSION }}
-    #jq --arg app openfoam --arg commit {{ OF_BRANCH }} \
-    #    --arg branch {{ OF_BRANCH }} \
-    #    '.[$app] |= if . == null then
-    #    {
-    #        fork: "org-openfoam",
-    #        branch: $branch,
-    #        commit: $commit,
-    #        version: "{{ OF_VERSION }}"
-    #    }
-    #    else . +
-    #    {
-    #        fork: "org-openfoam",
-    #        branch: $branch,
-    #        commit: $commit,
-    #        version: "{{ OF_VERSION }}"
-    #    } end' /apps.json > /tmp/apps.json
+    apt-get update
+    apt-get -y install --no-install-recommends openfoam{{ OF_VERSION }}
+    rm -rf /opt/openfoam{{ OF_VERSION }}/tutorials/*
+    apt-get -y remove --force libopenmpi*
+    jq --arg app openfoam --arg commit {{ OF_BRANCH }} \
+        --arg branch {{ OF_BRANCH }} \
+        '.[$app] |= if . == null then
+        {
+            fork: "org-openfoam",
+            branch: $branch,
+            commit: $commit,
+            version: "{{ OF_VERSION }}"
+        }
+        else . +
+        {
+            fork: "org-openfoam",
+            branch: $branch,
+            commit: $commit,
+            version: "{{ OF_VERSION }}"
+        } end' /apps.json > /tmp/apps.json
 
 %runscript
     /bin/bash -c 'cd /opt/openfoam{{ OF_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'

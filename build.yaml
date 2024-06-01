@@ -1,11 +1,12 @@
-# BITBUCKET_USER=<user> BITBUCKET_TOKEN=<token> ansible-playbook build.yaml
+# ansible-playbook build.yaml
 ---
-- name: Build foam-extend apptainer containers
-  hosts: localhost
+
+- name: Check local requirements
+  hosts: "{{ groups['build_hosts'] | default('localhost') }}"
   gather_facts: false
   vars:
     ansible_python_interpreter: /usr/bin/python3
-
+    build_hosts: "{{ groups['build_hosts'] | default('localhost') }}"
   tasks:
     - name: Apptainer version check
       command: apptainer --version
@@ -16,82 +17,194 @@
         that:
           - apptainer_version_output.stdout.split(' ')[2] is version("1.3.1", ">=")
         fail_msg: "Apptainer version is not 1.3.1 or later"
+    - name: containers folder check
+      file:
+        path: "./containers"
+        state: directory
 
-    - name: Foam-Extend versions defined
+- name: Set facts for OpenFOAM forks, Ubuntu, and Open MPI versions
+  hosts: "{{ groups['build_hosts'] | default('localhost') }}"
+  gather_facts: no
+  tasks:
+    - name: Set OpenFOAM forks, versions, Ubuntu, and Open MPI versions
       set_fact:
-        fe_versions:
-          - "5.0"
-    - name: Foam-Extend branches defined
-      set_fact:
-        fe_branches:
-          - "master"
-    - name: Ubuntu versions defined
-      set_fact:
+        openfoam_forks:
+          - name: foam-extend
+            versions:
+              - "5.0"
+            branches:
+              - master
+          - name: com-openfoam
+            versions:
+              - "2312"
+          - name: org-openfoam
+            versions:
+              - "11"
         ubuntu_versions:
           - "24.04"
-    - name: OpenMPI versions defined
-      set_fact:
-        ompi_versions:
+          - "22.04"
+        openmpi_versions:
           - "4.1.5"
+    - name: software combinations
+      set_fact:
+        structured_list: >-
+          {{
+            (structured_list | default([])) +
+            (item.versions | product(item.branches | default(['default']), [item.name]))
+          }}
+      loop: "{{ openfoam_forks | list }}"
+    - name: Build matrix
+      set_fact:
+        build_matrix: >-
+          {{
+              build_matrix | default([]) + 
+              [dict({
+                'version': item.0.0,
+                'branch': item.0.1,
+                'fork': item.0.2,
+                'ubuntu': item.1,
+                'openmpi': item.2
+              })]
+          }}
+      loop: "{{ structured_list | product(ubuntu_versions, openmpi_versions) }}"
+    - name: "[TEMPORARY] reject items with ubuntu 24.04 and fork org-openfoam (no Debian packages yet)"
+      set_fact:
+        build_matrix: >-
+          {{ 
+              build_matrix | selectattr('ubuntu', '!=', '24.04') +
+              build_matrix | selectattr('ubuntu', '==', '24.04') | rejectattr('fork', '==', 'org-openfoam')
+          }}
+    - name: Display final build matrix
+      debug:
+        var: build_matrix
 
-    - name: Check if foam-extend containers exist
+- name: OpenMPI base containers
+  hosts: "{{ groups['build_hosts'] | default('localhost') }}"
+  gather_facts: no
+  tasks:
+    - name: Check if OMPI container exist
       stat:
-        path: "fe-{{ item.1 }}-{{ item.2 }}-ubuntu-{{ item.0 }}-ompi-{{ item.3 }}.sif"
-      register: container_stat
-      loop: "{{ ubuntu_versions|product(fe_versions,fe_branches,ompi_versions) | list }}"
-      delegate_to: localhost
-      check_mode: no
-    - name: Build foam-extend containers
+        path: "./containers/ubuntu-{{ item.0 }}-ompi-{{ item.1 }}.sif"
+      register: ompi_container_file
+      loop: "{{ ubuntu_versions | product(openmpi_versions) }}"
+    - name: Build OMPI base containers if .sif file doesn't exist
       command: apptainer build
                 --warn-unused-build-args
-                --build-arg UBUNTU_VERSION={{ item.0 }}
-                --build-arg FE_VERSION={{ item.1 }}
-                --build-arg FE_BRANCH={{ item.2 }}
-                --build-arg OMPI_VERSION={{ item.3 }}
-                fe-{{ item.1 }}-{{ item.2 }}-ubuntu-{{ item.0 }}-ompi-{{ item.3 }}.sif
-                foam-extend.def
-      loop: "{{ ubuntu_versions|product(fe_versions,fe_branches,ompi_versions) | list }}"
-      when: not container_stat.results[idx].stat.exists
-      loop_control:
-        index_var: idx
+                --build-arg UBUNTU_VERSION={{ item.item.0 }}
+                --build-arg OMPI_VERSION={{ item.item.1 }}
+                ./containers/ubuntu-{{ item.item.0 }}-ompi-{{ item.item.1 }}.sif
+                openmpi.def
+      loop: "{{ ompi_container_file.results }}"
+      when: not item.stat.exists
+
+- name: OpenFOAM base containers
+  hosts: "{{ groups['build_hosts'] | default('localhost') }}"
+  gather_facts: no
+  tasks:
+    - name: Check if base OpenFOAM containers exist
+      stat:
+        path: "./containers/{{ item.fork }}-{{ item.version }}-{{ item.branch }}-ubuntu-{{ item.ubuntu }}-ompi-{{ item.openmpi }}.sif"
+      register: container_file
+      loop: "{{ build_matrix }}"
+    - name: Build base containers if corresponding .sif files don't exist
+      command: apptainer build --force
+                --warn-unused-build-args
+                --build-arg UBUNTU_VERSION={{ item.item.ubuntu }}
+                --build-arg OF_VERSION={{ item.item.version }}
+                --build-arg OF_BRANCH={{ item.item.branch }}
+                --build-arg OMPI_VERSION={{ item.item.openmpi }}
+                ./containers/{{ item.item.fork }}-{{ item.item.version }}-{{ item.item.branch }}-ubuntu-{{ item.item.ubuntu }}-ompi-{{ item.item.openmpi }}.sif
+                {{ item.item.fork }}.def
+      loop: "{{ container_file.results }}"
+      when: not item.stat.exists
+      ignore_errors: true # Containers install deb packages, might not available for the Ubuntu version
+      run_once: true
       async: 10800
       poll: 0
-      register: async_result
-    - name: All foam-extend container build tasks have been completed
+      register: async_openfoam_build
+    - name: All base containers build tasks have been completed
       async_status:
         jid: "{{ item.ansible_job_id }}"
-      loop: "{{ async_result.results }}"
+      loop: "{{ async_openfoam_build.results }}"
       when: item.changed
       register: async_status_result
       until: async_status_result.finished
       retries: 180
       delay: 60
-    
-    - name: Projects to be built are looked up
-      set_fact:
-        projects: "{{ query('fileglob', 'projects/*.def') | map('basename') | map('regex_replace', '\\.def$', '') | list }}"
 
-    - name: Projects to be built are shown
+- name: OpenFOAM projects containers
+  hosts: "{{ groups['build_hosts'] | default('localhost') }}"
+  gather_facts: no
+  tasks:
+    - name: Find .def files in project directories
+      find:
+        paths: "projects-{{ item.name }}"
+        patterns: "*.def"
+      register: def_files
+      with_items: "{{ openfoam_forks }}"
+
+    - name: Correspond projects to OpenFOAM forks
+      set_fact:
+        project_files: >- 
+          {{
+            project_files | default([]) +
+            item.files | product([{'fork': item.item.name}])
+          }}
+      loop: "{{ def_files.results | list }}"
+
+    - name: Display found .def files
       debug:
-        var: 
-          projects
+        msg: "Picked up file: {{ item.0.path}} for fork: {{ item.1.fork }}"
+      loop: "{{ project_files }}"
+
+    - name: Merge project files and build_matrix
+      set_fact:
+        project_paths: >-
+          {{
+            project_paths | default([]) +
+            [item[0] | combine(find_build_matrix)]
+          }}
+      loop: "{{ project_files }}"
+      vars:
+        find_build_matrix: >-
+          {{
+            build_matrix | selectattr('fork', 'equalto', item[1].fork) | list | first | default({})
+          }}
+
+    - name: Cleanup projects build list
+      set_fact:
+        projects: >-
+          {{
+            projects | default([]) + [dict({
+              'project': (item.path | basename | splitext).0,
+              'path': item.path,
+              'fork': item.path,
+              'version': item.version,
+              'branch': item.branch,
+              'ubuntu': item.ubuntu,
+              'openmpi': item.openmpi
+            })]
+          }}
+      loop: "{{ project_paths }}"
+
+    - name: Display projects build list
+      debug:
+        var: projects
 
     - name: Build project containers
-      command: apptainer build
+      command: apptainer build --force
                 --warn-unused-build-args
-                --build-arg UBUNTU_VERSION={{ item.0 }}
-                --build-arg FE_VERSION={{ item.1 }}
-                --build-arg FE_BRANCH={{ item.2 }}
-                --build-arg OMPI_VERSION={{ item.3 }}
-                --build-arg REPO_USER={{ lookup('env', 'BITBUCKET_USER') }}
-                --build-arg REPO_TOKEN={{ lookup('env', 'BITBUCKET_TOKEN') }}
-                --force
-                {{ item.4 }}-fe-{{ item.1 }}-{{ item.2 }}-ubuntu-{{ item.0 }}-ompi-{{ item.3 }}.sif
-                projects/{{ item.4 }}.def
-      loop: "{{ ubuntu_versions|product(fe_versions,fe_branches,ompi_versions,projects) | list }}"
+                --build-arg UBUNTU_VERSION={{ item.ubuntu }}
+                --build-arg OF_VERSION={{ item.version }}
+                --build-arg OF_BRANCH={{ item.branch }}
+                --build-arg OMPI_VERSION={{ item.openmpi }}
+                containers/{{ item.project }}-{{ item.fork }}-{{ item.version }}-{{ item.branch }}-ubuntu-{{ item.ubuntu }}-ompi-{{ item.openmpi }}.sif
+                {{ item.path }}
+      loop: "{{ projects }}"
       async: 10800
       poll: 0
       register: async_result
+
     - name: All project container build tasks have been completed
       async_status:
         jid: "{{ item.ansible_job_id }}"
