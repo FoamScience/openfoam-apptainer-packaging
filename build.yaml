@@ -26,9 +26,13 @@
   hosts: "{{ groups['build_hosts'] | default('localhost') }}"
   gather_facts: no
   tasks:
+    - name: Load overriden software versions
+      include_vars:
+        file: software_versions.yaml
+      ignore_errors: yes
     - name: Set OpenFOAM forks, versions, Ubuntu, and Open MPI versions
       set_fact:
-        openfoam_forks:
+        default_openfoam_forks:
           - name: foam-extend
             versions:
               - "5.0"
@@ -40,11 +44,16 @@
           - name: org-openfoam
             versions:
               - "11"
-        ubuntu_versions:
+        default_ubuntu_versions:
           - "24.04"
           - "22.04"
-        openmpi_versions:
+        default_openmpi_versions:
           - "4.1.5"
+    - name: Override versions with loaded variables
+      set_fact:
+        openfoam_forks: "{{ openfoam_forks | default(default_openfoam_forks) }}"
+        ubuntu_versions: "{{ ubuntu_versions | default(default_ubuntu_versions) }}"
+        openmpi_versions: "{{ openmpi_versions | default(default_openmpi_versions) }}"
     - name: software combinations
       set_fact:
         structured_list: >-
