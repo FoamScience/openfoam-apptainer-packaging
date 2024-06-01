@@ -128,18 +128,6 @@
       when: not item.stat.exists
       ignore_errors: true # Containers install deb packages, might not available for the Ubuntu version
       run_once: true
-      async: 10800
-      poll: 0
-      register: async_openfoam_build
-    - name: All base containers build tasks have been completed
-      async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ async_openfoam_build.results }}"
-      when: item.changed
-      register: async_status_result
-      until: async_status_result.finished
-      retries: 180
-      delay: 60
 
 - name: OpenFOAM projects containers
   hosts: "{{ groups['build_hosts'] | default('localhost') }}"
@@ -187,7 +175,7 @@
             projects | default([]) + [dict({
               'project': (item.path | basename | splitext).0,
               'path': item.path,
-              'fork': item.path,
+              'fork': item.fork,
               'version': item.version,
               'branch': item.branch,
               'ubuntu': item.ubuntu,
@@ -210,16 +198,3 @@
                 containers/{{ item.project }}-{{ item.fork }}-{{ item.version }}-{{ item.branch }}-ubuntu-{{ item.ubuntu }}-ompi-{{ item.openmpi }}.sif
                 {{ item.path }}
       loop: "{{ projects }}"
-      async: 10800
-      poll: 0
-      register: async_result
-
-    - name: All project container build tasks have been completed
-      async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ async_result.results }}"
-      when: item.changed
-      register: async_status_result
-      until: async_status_result.finished
-      retries: 30
-      delay: 60

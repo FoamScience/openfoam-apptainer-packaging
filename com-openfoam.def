@@ -23,7 +23,7 @@ From: containers/ubuntu-{{ UBUNTU_VERSION }}-ompi-{{ OMPI_VERSION }}.sif
     DEBIAN_FRONTEND=noninteractive
     apt-get -y install --no-install-recommends openfoam{{ OF_VERSION }}-default python3
     rm -rf /usr/lib/openfoam/openfoam{{ OF_VERSION }}/tutorials/*
-    apt-get -y remove --force libopenmpi*
+    dpkg --remove --force-depends libopenmpi-dev openmpi-bin openmpi-common
     jq --arg app openfoam --arg commit {{ OF_BRANCH }} \
         --arg branch {{ OF_BRANCH }} \
         '.[$app] |= if . == null then

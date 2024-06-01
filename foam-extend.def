@@ -32,6 +32,7 @@ From: containers/ubuntu-{{ UBUNTU_VERSION }}-ompi-{{ OMPI_VERSION }}.sif
     sed -i 's|^foamInstall.*|foamInstall=/opt/foam|' /opt/foam/foam-extend-{{ OF_VERSION }}/etc/bashrc
     nProcs=$(nproc)
     /bin/bash -c "cd /opt/foam/foam-extend-{{ OF_VERSION }} && source etc/bashrc && ./Allwmake.firstInstall -j $nProcs"
+    rm -rf /opt/foam/foam-extend-{{ OF_VERSION }}/tutorials/*
     OF_COMMIT_HASH=$(git -C /opt/foam/foam-extend-{{ OF_VERSION }} rev-parse HEAD)
     jq --arg app openfoam --arg commit $OF_COMMIT_HASH \
         --arg branch {{ OF_BRANCH }} \
