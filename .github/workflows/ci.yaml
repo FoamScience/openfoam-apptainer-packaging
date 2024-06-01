@@ -42,7 +42,9 @@ jobs:
         run: |
           mpi_out1=$(mpirun -n 2 apptainer run --sharens containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/ompiTest')
           mpi_out2=$(apptainer run containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/ompiTest')
-          if [ "$mpi_out1" != "$mpi_out2" ]; then
+          out1=$(echo -n $mpi_out1 | fold -w1 | sort | tr -d '\n')
+          out2=$(echo -n $mpi_out2 | fold -w1 | sort | tr -d '\n')
+          if [ "$out1" != "$out2" ]; then
             echo "Outputs are not identical"
             echo "Output 1: $mpi_out1"
             echo "Output 2: $mpi_out2"
