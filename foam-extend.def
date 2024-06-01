@@ -3,60 +3,62 @@
 # Create Ubuntu-based Foam-Extend image
 #
 # Build
-#   apptainer build --build-arg FE_VERSION=5.0 fe5.sif foam-extend.def
+#   apptainer build fe.sif foam-extend.def
 #
 # Note
 #   apptainer version 1.3.1
 #
 # ---------------------------------------------------------------------------
-Bootstrap: docker
-From: ubuntu:{{ UBUNTU_VERSION }}
+Bootstrap: localimage
+From: containers/ubuntu-{{ UBUNTU_VERSION }}-ompi-{{ OMPI_VERSION }}.sif
 
 %arguments
     UBUNTU_VERSION=24.04
-    FE_VERSION=5.0
-    FE_BRANCH=master
     OMPI_VERSION=4.1.5
+    OF_VERSION=5.0
+    OF_BRANCH=master
 
 %post
     DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get -y install --no-install-recommends \
-        binutils-dev cmake flex zlib1g-dev libncurses-dev curl bison libbison-dev libfl-dev \
-        python3 libpython3-dev libxt-dev rpm mercurial \
-        apt-utils vim-tiny nano-tiny git ca-certificates \
-        gcc g++ gfortran make file bzip2 patch libmetis-dev libscotch-dev libparmetis-dev
-    export OMPI_VERSION={{ OMPI_VERSION }}
-    ompi_short=$(echo {{ OMPI_VERSION }} | cut -d '.' -f1-2)
-    export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v$ompi_short/openmpi-{{ OMPI_VERSION }}.tar.bz2"
-    export OMPI_DIR=/opt/ompi
-    mkdir -p $OMPI_DIR /tmp/ompi
-    cd /tmp/ompi && curl -O $OMPI_URL && tar -xjf openmpi-$OMPI_VERSION.tar.bz2
-    cd /tmp/ompi/openmpi-$OMPI_VERSION && ./configure --prefix=$OMPI_DIR && make -j$(nproc) install
-    export PATH=$OMPI_DIR/bin:$PATH
-    export LD_LIBRARY_PATH=$OMPI_DIR/lib:$LD_LIBRARY_PATH
+        binutils-dev cmake flex zlib1g-dev libncurses-dev bison libbison-dev libfl-dev \
+        python3 libpython3-dev libxt-dev rpm mercurial apt-utils\
+        patch libmetis-dev libscotch-dev libparmetis-dev
     mkdir -p /opt/foam
-    git clone --single-branch --branch {{ FE_BRANCH }} --depth 1 \
-        git://git.code.sf.net/p/foam-extend/foam-extend-{{ FE_VERSION }} \
-        /opt/foam/foam-extend-{{ FE_VERSION }}
-    sed -i 's|^foamInstall.*|foamInstall=/opt/foam|' /opt/foam/foam-extend-{{ FE_VERSION }}/etc/bashrc
+    git clone --single-branch --branch {{ OF_BRANCH }} --depth 1 \
+        git://git.code.sf.net/p/foam-extend/foam-extend-{{ OF_VERSION }} \
+        /opt/foam/foam-extend-{{ OF_VERSION }}
+    sed -i 's|^foamInstall.*|foamInstall=/opt/foam|' /opt/foam/foam-extend-{{ OF_VERSION }}/etc/bashrc
     nProcs=$(nproc)
-    /bin/bash -c "cd /opt/foam/foam-extend-{{ FE_VERSION }} && source etc/bashrc && ./Allwmake.firstInstall -j $nProcs"
+    /bin/bash -c "cd /opt/foam/foam-extend-{{ OF_VERSION }} && source etc/bashrc && ./Allwmake.firstInstall -j $nProcs"
+    OF_COMMIT_HASH=$(git -C /opt/foam/foam-extend-{{ OF_VERSION }} rev-parse HEAD)
+    jq --arg app openfoam --arg commit $OF_COMMIT_HASH \
+        --arg branch {{ OF_BRANCH }} \
+        '.[$app] |= if . == null then
+        {
+            fork: "foam-extend",
+            branch: $branch,
+            commit: $commit,
+            version: "{{ OF_VERSION }}"
+        }
+        else . +
+        {
+            fork: "foam-extend",
+            branch: $branch,
+            commit: $commit,
+            version: "{{ OF_VERSION }}"
+        } end' /apps.json > /tmp/apps.json
+    mv /tmp/apps.json /apps.json
 
 %runscript
-    /bin/bash -c 'cd /opt/foam/foam-extend-{{ FE_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
+    /bin/bash -c 'cd /opt/foam/foam-extend-{{ OF_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
     if [ $# -eq 0 ]; then
-        /bin/bash -c "source /opt/foam/foam-extend-{{ FE_VERSION }}/etc/bashrc && /bin/bash --login"
+        /bin/bash -c "source /opt/foam/foam-extend-{{ OF_VERSION }}/etc/bashrc && /bin/bash --login"
     else
-        /bin/bash -c "source /opt/foam/foam-extend-{{ FE_VERSION }}/etc/bashrc && $@"
+        /bin/bash -c "source /opt/foam/foam-extend-{{ OF_VERSION }}/etc/bashrc && $@"
     fi
 
-%environment
-    export OMPI_DIR=/opt/ompi
-    export PATH="$OMPI_DIR/bin:$PATH"
-    export LD_LIBRARY_PATH="$OMPI_DIR/lib:$LD_LIBRARY_PATH"
-    export MANPATH="$OMPI_DIR/share/man:$MANPATH"
-    export SHELL=/bin/bash
-
 %labels
-    Maintainer="Mohammed Elwardi Fadeli"
+    Maintainer Mohammed Elwardi Fadeli
+    Description Ubuntu-based Foam-Extend image with OpenMPI
