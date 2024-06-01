@@ -73,29 +73,32 @@ mv /tmp/apps.json /apps.json
 The provided `build.yaml` is a sophisticated Ansible playbook that makes sure required software is installed locally,
 and helps automatizing the container building process.
 
-The first two layers translate into "Ansible facts":
+It also reads `software_versions.yaml` (see the example file) which has higher priority
+in overriding what software versions to build for.
+
+The first two container layers (OpenMPI and OpenFOAM-fork) translate into "Ansible facts",
+which can be overridden by including a `software_versions.yaml` file. The default values
+look like this:
 ```yaml
-- name: Set facts for OpenFOAM forks, Ubuntu, and Open MPI versions
-  hosts: "{{ groups['build_hosts'] | default('localhost') }}"
-  gather_facts: no
-  tasks:
-    - name: Set OpenFOAM forks, versions, Ubuntu, and OpenMPI versions
-      set_fact:
-        openfoam_forks:
-          - name: foam-extend
-            versions:
-              - "5.0"
-            branches:
-              - master
-          - name: com-openfoam
-            versions:
-              - "2312"
-              - "2212"
-        ubuntu_versions:
-          - "24.04"
-        openmpi_versions:
-          - "4.1.5"
+openfoam_forks:
+  - name: foam-extend
+    versions:
+      - "5.0"
+    branches:
+      - master
+  - name: com-openfoam
+    versions:
+      - "2312"
+  - name: org-openfoam
+    versions:
+      - "11"
+ubuntu_versions:
+  - "24.04"
+  - "22.04"
+openmpi_versions:
+  - "4.1.5"
 ```
+
 To build containers with specific software versions, adding the versions to these lists is sufficient.
 
 > [!NOTE]
