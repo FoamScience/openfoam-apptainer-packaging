@@ -102,7 +102,7 @@
                 --build-arg UBUNTU_VERSION={{ item.item.0 }}
                 --build-arg OMPI_VERSION={{ item.item.1 }}
                 ./containers/ubuntu-{{ item.item.0 }}-ompi-{{ item.item.1 }}.sif
-                openmpi.def
+                ./basic/openmpi.def
       loop: "{{ ompi_container_file.results }}"
       when: not item.stat.exists
 
@@ -123,7 +123,7 @@
                 --build-arg OF_BRANCH={{ item.item.branch }}
                 --build-arg OMPI_VERSION={{ item.item.openmpi }}
                 ./containers/{{ item.item.fork }}-{{ item.item.version }}-{{ item.item.branch }}-ubuntu-{{ item.item.ubuntu }}-ompi-{{ item.item.openmpi }}.sif
-                {{ item.item.fork }}.def
+                ./basic/{{ item.item.fork }}.def
       loop: "{{ container_file.results }}"
       when: not item.stat.exists
       ignore_errors: true # Containers install deb packages, might not available for the Ubuntu version
@@ -133,68 +133,52 @@
   hosts: "{{ groups['build_hosts'] | default('localhost') }}"
   gather_facts: no
   tasks:
-    - name: Find .def files in project directories
-      find:
-        paths: "projects-{{ item.name }}"
-        patterns: "*.def"
-      register: def_files
-      with_items: "{{ openfoam_forks }}"
-
-    - name: Correspond projects to OpenFOAM forks
+    - name: Load overriden project versions
+      include_vars:
+        file: projects_versions.yaml
+      ignore_errors: yes
+    - name: Override project versions
       set_fact:
-        project_files: >- 
-          {{
-            project_files | default([]) +
-            item.files | product([{'fork': item.item.name}])
-          }}
-      loop: "{{ def_files.results | list }}"
+        projects_data: "{{  projects_data | default([]) + [lookup('vars', item.name+'-projects') | map('combine', {'fork': item.name}) ]  | flatten}}"
+      loop: "{{ openfoam_forks }}"
 
-    - name: Display found .def files
+    - name: Initialize build combinations list
+      set_fact:
+        combos: []
+    - name: Include cartesian product tasks
+      include_tasks:
+        file: partials/projects_cartesian_product.yaml
+      loop: "{{ projects_data }}"
+      loop_control:
+        loop_var: project_dict
+
+    - name: Clean build matrix for projects
+      set_fact:
+        projects: "{{ combos | product(build_matrix) }}"
+
+    - name: Display build matrix for projects
       debug:
-        msg: "Picked up file: {{ item.0.path}} for fork: {{ item.1.fork }}"
-      loop: "{{ project_files }}"
+        msg: "{{ projects }}"
 
-    - name: Merge project files and build_matrix
-      set_fact:
-        project_paths: >-
-          {{
-            project_paths | default([]) +
-            [item[0] | combine(find_build_matrix)]
-          }}
-      loop: "{{ project_files }}"
-      vars:
-        find_build_matrix: >-
-          {{
-            build_matrix | selectattr('fork', 'equalto', item[1].fork) | list | first | default({})
-          }}
-
-    - name: Cleanup projects build list
-      set_fact:
-        projects: >-
-          {{
-            projects | default([]) + [dict({
-              'project': (item.path | basename | splitext).0,
-              'path': item.path,
-              'fork': item.fork,
-              'version': item.version,
-              'branch': item.branch,
-              'ubuntu': item.ubuntu,
-              'openmpi': item.openmpi
-            })]
-          }}
-      loop: "{{ project_paths }}"
-
-    - name: Display projects build list
-      debug:
-        var: projects
+    - name: Make sure container project folders are there
+      command: >-
+        mkdir -p containers/{{ item.0.project }}
+      loop: "{{ projects }}"
 
     - name: Build project containers
-      command: apptainer build --force
-                --warn-unused-build-args
-                --build-arg UBUNTU_VERSION={{ item.ubuntu }}
-                --build-arg OF_VERSION={{ item.version }}
-                --build-arg OF_BRANCH={{ item.branch }}
-                --build-arg OMPI_VERSION={{ item.openmpi }}
-                containers/{{ item.project }}-{{ item.fork }}-{{ item.version }}-{{ item.branch }}-ubuntu-{{ item.ubuntu }}-ompi-{{ item.openmpi }}.sif
-                {{ item.path }}
+      command: >-
+          apptainer build --force
+                --warn-unused-build-args {{ " " }}
+                {%- set args = [] -%}
+                {%- for key, value in item.0.items() -%}
+                {%- if key != 'fork' and key != 'project' -%}
+                {{ "--build-arg " ~ key ~ "=" ~ value }}
+                {%- endif -%}
+                {%- endfor -%}  {{ " " }}
+                --build-arg UBUNTU_VERSION={{ item.1.ubuntu }}
+                --build-arg OF_VERSION={{ item.1.version }}
+                --build-arg OF_BRANCH={{ item.1.branch }}
+                --build-arg OMPI_VERSION={{ item.1.openmpi }}
+                containers/{{ item.0.project }}/{{ item.0.values() | join('-') }}-{{ item.1.version }}-{{ item.1.branch }}-ubuntu-{{ item.1.ubuntu }}-ompi-{{ item.1.openmpi }}.sif
+                projects-{{item.0.fork}}/{{ item.0.project }}.def
       loop: "{{ projects }}"
