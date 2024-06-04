@@ -45,4 +45,5 @@ openmpi_versions:
   - "4.1.5"
 ```
 
-Take a look at [docs.md](docs.md) for more details on building and using the containers.
+Take a look at [docs_dev.md](docs_dev.md) for more details on building, and at
+[docs_user.md](docs_user.md) for details on how to use them.
