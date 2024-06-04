@@ -40,8 +40,8 @@ jobs:
 
       - name: Run test MPI application with host and container MPIs
         run: |
-          mpi_out1=$(mpirun -n 2 apptainer run --sharens containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/ompiTest')
-          mpi_out2=$(apptainer run containers/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/ompiTest')
+          mpi_out1=$(mpirun -n 2 apptainer run --sharens containers/test/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif '/opt/OMPIFoam/ompiTest')
+          mpi_out2=$(apptainer run containers/test/test-com-openfoam-2312-default-ubuntu-24.04-ompi-4.1.5.sif 'mpirun -n 2 /opt/OMPIFoam/ompiTest')
           out1=$(echo -n $mpi_out1 | fold -w1 | sort | tr -d '\n')
           out2=$(echo -n $mpi_out2 | fold -w1 | sort | tr -d '\n')
           if [ "$out1" != "$out2" ]; then
