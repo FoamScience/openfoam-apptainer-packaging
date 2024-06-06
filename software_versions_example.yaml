@@ -1,8 +1,0 @@
-openfoam_forks:
-  - name: com-openfoam
-    versions:
-      - "2312"
-ubuntu_versions:
-  - "24.04"
-openmpi_versions:
-  - "4.1.5"

@@ -1,7 +1,0 @@
-com-openfoam-projects:
-  - name: test
-org-openfoam-projects:
-  - name: test
-    GIT_BRANCH:
-      - master
-      - develop

@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 #
-# Create ESI OpenFOAM-based test image for OpenMPI
+# Create Foam-Extend-based test image for OpenMPI
 #
 # Build
 #   apptainer build test.sif test.def
@@ -10,13 +10,13 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: localimage
-From: containers/com-openfoam-{{ OF_VERSION }}-{{ OF_BRANCH }}-ubuntu-{{ UBUNTU_VERSION }}-ompi-{{ OMPI_VERSION }}.sif
+From: containers/basic/{{ BASE_CONTAINER }}.sif
 
 %arguments
-    UBUNTU_VERSION=24.04
-    OMPI_VERSION=4.1.5
-    OF_VERSION=11
-    OF_BRANCH=default
+    OS_VERSION=24.04
+    OPENMPI_VERSION=4.1.5
+    OPENFOAM_VERSION=5.0
+    OPENFOAM_GIT_REF=master
 
 %files
     OMPIFoam /opt/OMPIFoam
@@ -24,8 +24,8 @@ From: containers/com-openfoam-{{ OF_VERSION }}-{{ OF_BRANCH }}-ubuntu-{{ UBUNTU_
 %post
     echo "Testing OpenMPI implementation"
     /bin/bash -c "cd /opt/OMPIFoam && mpicc -o ompiTest testOMPI.cpp"
-    /bin/bash -c "source /opt/openfoam{{ OF_VERSION }}/etc/bashrc && cd /opt/OMPIFoam && wmake"
-    jq --arg app test \
+    /bin/bash -c "source /opt/foam/foam-extend-{{ OPENFOAM_VERSION }}/etc/bashrc && cd /opt/OMPIFoam && wmake"
+    jq --arg app extend-test \
         '.[$app] |= if . == null then
         {
             ompi_test_bin: "/opt/OMPIFoam/ompiTest",
@@ -39,4 +39,4 @@ From: containers/com-openfoam-{{ OF_VERSION }}-{{ OF_BRANCH }}-ubuntu-{{ UBUNTU_
     mv /tmp/apps.json /apps.json
 
 %labels
-    Description Test applications for OpenFOAM Foundation version
+    Description Test applications for Foam-Extend
