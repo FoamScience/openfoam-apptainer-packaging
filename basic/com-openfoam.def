@@ -10,44 +10,44 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: localimage
-From: containers/ubuntu-{{ UBUNTU_VERSION }}-ompi-{{ OMPI_VERSION }}.sif
+From: containers/basic/ubuntu-{{ OS_VERSION }}-ompi-{{ OPENMPI_VERSION }}.sif
 
 %arguments
-    UBUNTU_VERSION=24.04
-    OMPI_VERSION=4.1.5
-    OF_VERSION=2312
-    OF_BRANCH=default
+    OS_VERSION=24.04
+    OPENMPI_VERSION=4.1.5
+    OPENFOAM_VERSION=2312
+    OPENFOAM_GIT_REF=default
 
 %post
     curl https://dl.openfoam.com/add-debian-repo.sh | bash
     DEBIAN_FRONTEND=noninteractive
-    apt-get -y install --no-install-recommends openfoam{{ OF_VERSION }}-default python3
-    rm -rf /usr/lib/openfoam/openfoam{{ OF_VERSION }}/tutorials/*
+    apt-get -y install --no-install-recommends openfoam{{ OPENFOAM_VERSION }}-default python3
+    rm -rf /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }}/tutorials/*
     dpkg --remove --force-depends libopenmpi-dev openmpi-bin openmpi-common
-    jq --arg app openfoam --arg commit {{ OF_BRANCH }} \
-        --arg branch {{ OF_BRANCH }} \
+    jq --arg app openfoam --arg commit {{ OPENFOAM_GIT_REF }} \
+        --arg branch {{ OPENFOAM_GIT_REF }} \
         '.[$app] |= if . == null then
         {
             fork: "com-openfoam",
             branch: $branch,
             commit: $commit,
-            version: "{{ OF_VERSION }}"
+            version: "{{ OPENFOAM_VERSION }}"
         }
         else . +
         {
             fork: "com-openfoam",
             branch: $branch,
             commit: $commit,
-            version: "{{ OF_VERSION }}"
+            version: "{{ OPENFOAM_VERSION }}"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 
 %runscript
-    /bin/bash -c 'cd /usr/lib/openfoam/openfoam{{ OF_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
+    /bin/bash -c 'cd /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
     if [ $# -eq 0 ]; then
-        /bin/bash -c "source /usr/lib/openfoam/openfoam{{ OF_VERSION }}/etc/bashrc && /bin/bash --login"
+        /bin/bash -c "source /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }}/etc/bashrc && /bin/bash --login"
     else
-        /bin/bash -c "source /usr/lib/openfoam/openfoam{{ OF_VERSION }}/etc/bashrc && $@"
+        /bin/bash -c "source /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }}/etc/bashrc && $@"
     fi
 
 %labels
