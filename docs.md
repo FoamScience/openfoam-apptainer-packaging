@@ -113,13 +113,14 @@ apptainer run containers/projects/test-master.sif "jq '.' /apps.json"
 ```
 
 Although it is up to the maintainer to decide what to put in the metadata,
-each application container will (usually) log important metadata to its `/apps.json`
+each project container will (usually) log important metadata to its `/apps.json`
 which can be queried with `jq`.
 
 The previous snippet suggests that the container provides two executables for testing
 the OpenMPI implementation, and that is built on top of `(OpenCFD) OpenFOAM v2312`. Because
-this is a version tag, `branch` and `commit` are set to `default`, but if OpenFOAM is to
-be built from source, it's recommended to set these to the actual values.
+this is a version tag, `openfoam.branch` and `openfoam.commit` are set to `default` in the base
+container, but if OpenFOAM is to be built from source, it's recommended to set these to
+the actual values.
 
 An integral part of this packaging system is the **compatibility with OpenMPI**.
 All containers are useable with `mpiexec` and within SLURM batch jobs which is tested in the CI pipeline

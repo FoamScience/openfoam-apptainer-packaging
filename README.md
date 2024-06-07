@@ -2,9 +2,10 @@
 
 ## Idea
 
+Automated workflows to:
+
 - Build a base `OpenFOAM` container (supporting different forks) to run on HPCs
-- pickup any definitions from `projects-<openfoam-fork>` folders to build
-  project-specific containers
+- Build project-specific containers that inherit from the base container
 
 ## Quick Instructions
 
@@ -14,14 +15,13 @@ sudo apt install -y apptainer
 pip install ansible
 ansible-playbook build.yaml --extra-vars "@config.yaml"
 ```
-```
 
 > [!NOTE]
 > `ansible` is a nice tool to automate builds and make sure your host system has the required
 > dependencies to be able to build the containers.
 
 The ansible command (by default) will:
-- Create a containers tree in the current working folder:
+- Create the following tree in the current working folder:
 ```
 containers/
 ├── basic
@@ -32,7 +32,6 @@ containers/
 ```
 - Build a basic OpenMPI container `containers/basic/ubuntu-24.04-ompi-4.1.5.sif` 
 - Build a base (OpenCFD) OpenFOAM container `containers/basic/opencfd-openfoam.sif`
-- Build a test project container, making sure MPI works alright
+- Build a test project container, to make sure MPI works alright
 
-If you want to build containers for your projects, check [docs.md](docs.md). Basically,
-you need to supply a `config.yaml` file with the project definitions.
+Check [docs.md](docs.md) for details how the configuration is expected to be structured.
