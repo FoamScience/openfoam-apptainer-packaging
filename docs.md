@@ -4,7 +4,7 @@
 2. Run the build playbook and point to the configuration:
 ```bash
 git clone https://github.com/FoamScience/openfoam-apptainer-packaging /tmp/of_tainers
-ansible-plabook /tmp/of_tainers/build.yaml --extra-vars "@/path/to/config.yaml"
+ansible-playbook /tmp/of_tainers/build.yaml --extra-vars "@/path/to/config.yaml"
 ```
 
 A configuration file for building an (OpenCFD) OpenFOAM container should look like:
@@ -23,7 +23,11 @@ containers:
         version: 2312 
 ```
 
-You will then find `containers/basic/opencfd-openfoam.sif` (relative to where you run the ansible command).
+You will then find the resulting container at `containers/basic/opencfd-openfoam.sif`
+(relative to where you run the ansible command). Note that, by default, the build playbook
+will try to pull some base containers from a registry, and build them only if the pull is
+unsuccessful. Pull-related behaviour can be configured in a `pull` section
+(again, refer to [config.yaml](config.yaml) for an example).
 
 ## Build containers for your OpenFOAM projects
 
@@ -31,7 +35,8 @@ You will then find `containers/basic/opencfd-openfoam.sif` (relative to where yo
 2. Write a [definition file](https://apptainer.org/docs/user/main/definition_files.html) for your project.
 3. Run the build playbook.
 
-For building a `test` project on top of the `opencfd-openfoam` container:
+To build a `test` project on top of the `opencfd-openfoam` container, supply the
+following configuration file:
 ```yaml
 containers:
   basic:
@@ -55,14 +60,16 @@ containers:
           #- dev
 ```
 
-The build playbook will create `containers/projects/test-master.sif` for you.
+The build playbook will then create `containers/projects/test-master.sif` for you.
 
-Note that the `build_args` in each project's description is **optional** but can be useful
-in building different container versions of the same project. A popular use case is to
-compile different branches of a project, or use different compilation modes (eg. optimization/debug).
+The `build_args` in each project's description is **optional** but can be useful
+when building different container versions of the same project. A popular use case is to
+compile different branches of a project, or use different compilation modes
+(eg. optimized/debug containers).
 
-These `build_args` will translate to apptainer build arguments. For example, `{{ BRANCH }}` (note, all uppercase)
-can be used as a placeholder in `projects/test.def` definition file.
+The `build_args` will translate to `apptainer` build arguments. For example,
+`{{ BRANCH }}` (note, all uppercase) can be used as a placeholder in `projects/test.def`
+definition file. It will be replaced with the possible values of `build_args.branch`.
 
 The definition files should also follow a set of rules:
 
@@ -136,14 +143,12 @@ smoothly on your host machine:
 # Matching the 4.1.5 version is probably optional but recommended; build the containers with your version!
 # It's also good practice to share process namespaces with --sharens
 
-# Test a sample MPI application (No OpenFOAM is involved code here)
-mpirun -n 2 apptainer run --sharens \
-    containers/projects/test-master.sif '/opt/OMPIFoam/ompiTest'
+# Test a sample MPI application (No OpenFOAM code is involved here)
+mpirun -n 2 apptainer run --sharens containers/projects/test-master.sif '/opt/OMPIFoam/ompiTest'
 # Should give the same output as:
-apptainer run -C \
-    containers/projects/test-master.sif 'mpirun -np 2 /opt/OMPIFoam/ompiTest'
+apptainer run -C containers/projects/test-master.sif 'mpirun -np 2 /opt/OMPIFoam/ompiTest'
 
-# MAKE SURE foam-extend is not sourced (on the host) for the shell instance you run this with
+# MAKE SURE OpenFOAM is not sourced (on the host) for the shell instance you run this with
 # Also, you can pick any other test container
 
 # Test an OpenFOAM application
@@ -163,13 +168,13 @@ apptainer run -C --cwd /opt/OMPIFoam \
 
 Generally, the containers will source the OpenFOAM environment and any project-specific RC files
 before dropping the user at a shell instance. Instead of an interactive shell, it's usually preferred
-to run commands through `apptainer run` for reproducibility:
+to run commands through `apptainer run` for reproducibility reasons:
 ```bash
 cd /path/to/openfoam/case/on/host/machine
 # apptainer should set CWD to the case folder, so this should 'just work'
 apptainer run -C container.sif "./Allclean"
 apptainer run -C container.sif "./Allrun.prepare"
-mpirun -n 16 apptainer run -C container.sif "containerSolver -parallel"
+mpirun -n 16 apptainer run --sharens container.sif "containerSolver -parallel"
 ```
 
 This chain of commands will also work as-is in a SLURM batch script.
