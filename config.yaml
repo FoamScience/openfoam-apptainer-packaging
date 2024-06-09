@@ -42,6 +42,6 @@ containers:
 
 # pull section sets pull paramters
 pull:
-  protocol: "library" # docker, or shub as Pull protocol
-  user: "user"
-  collection: "collection"
+  try_to_pull: true # Do we try to pull from registry?
+  protocol: "oras" # docker, or library as Pull protocol
+  scope: "ghcr.io/foamscience" # so oras://ghcr.io/foamscience/<container-name>:latest is used

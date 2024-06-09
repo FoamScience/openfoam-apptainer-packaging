@@ -30,7 +30,7 @@
       when: containers is undefined
     - name: Set default pull configuration
       set_fact:
-        pull: "{{ pull | default({'protocol': 'library', 'user': '', 'collection': ''}) }}"
+        pull: "{{ pull | default({'try_to_pull': true, 'protocol': 'oras', 'scope': 'ghcr.io/foamscience'}) }}"
 
 - name: Base containers
   hosts: "{{ groups['build_hosts'] | default('localhost') }}"
@@ -45,10 +45,11 @@
         if [ ! -f ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
           apptainer pull \
             ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif \
-            {{ pull.protocol }}://{{ pull.user + '/' if pull.user != '' else '' }}{{ pull.collection + '/' if pull.collection != '' else '' }}ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}
+            {{ pull.protocol }}://{{ pull.scope }}/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}
         fi
       loop: "{{ mpi_containers }}"
       ignore_errors: yes
+      when: pull.try_to_pull
     - name: Build OMPI base containers if .sif file doesn't exist
       shell: |
         if [ ! -f ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
@@ -67,12 +68,13 @@
         if [ ! -f ./containers/basic/{{ item.0 }}.sif ]; then
           apptainer pull \
             ./containers/basic/{{ item.0 }}.sif \
-            {{ pull.protocol }}://{{ pull.user + '/' if pull.user != '' else '' }}{{ pull.collection + '/' if pull.collection != '' else '' }}{{ item.0 }}
+            {{ pull.protocol }}://{{ pull.scope }}/{{ item.0 }}
         else
           echo "Container ./containers/basic/{{ item.0 }}.sif already exists. Skipping pull."
         fi
       loop: "{{ containers.basic.items() }}"
       ignore_errors: yes
+      when: pull.try_to_pull
     - name: Build base containers if corresponding .sif files don't exist
       shell: |
         if [ ! -f ./containers/basic/{{ item.0 }}.sif ]; then
