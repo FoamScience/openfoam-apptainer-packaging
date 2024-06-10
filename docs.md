@@ -178,3 +178,27 @@ mpirun -n 16 apptainer run --sharens container.sif "containerSolver -parallel"
 ```
 
 This chain of commands will also work as-is in a SLURM batch script.
+
+## Container debugging
+
+The apptainer images are meant to be used without any additional software packages to be
+installed or compiled into the containers, so create your definition files accordingly;
+but just in case you need to take a look at what's exactly inside the container,
+Docker can be useful, especially for comparing the container to a base image:
+```bash
+# Convert the container SIF to a sandbox directory
+apptainer build --sandbox ubuntu-24.04-ompi-4.1.5 ubuntu-24.04-ompi-4.1.5.sif
+# Compare the sandbox folder to the base docker Ubuntu image
+# This will show a list of added/removed/upgraded packages
+docker scout compare fs://ubuntu-24.04-ompi-4.1.5 --to ubuntu:24.04
+
+# Do we do better than some random Ubuntu-based MPI images?
+docker scout compare fs://ubuntu-24.04-ompi-4.1.5 --to csirocass/mpi:ubuntu22.04-openmpi4
+
+# Scan the sandbox directory for vulnerabilities. As long as no "critical" CVEs are found,
+# we can live with the rest
+docker scout quickview fs://ubuntu-24.04-ompi-4.1.5
+# More details on CVEs if you care about them. Generally, upgrading software gets rid
+# of most of the vulnerabilities
+docker scout cves fs://ubuntu-24.04-ompi-4.1.5
+```
