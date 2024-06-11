@@ -13,7 +13,6 @@ on:
 
 jobs:
   build:
-    if: "!startsWith(github.event.head_commit.message, 'docs:')"
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +31,11 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
         with:
           detached: true
+
+      - name: Force local building if last commit is not tagged as docs
+        if: "!startsWith(github.event.head_commit.message, 'docs:')"
+        run: |
+          sed -i 's/try_to_pull:.*/try_to_pull: false/g' config.yaml
 
       - name: Build containers for OpenCFD's OpenFOAM
         run: |
