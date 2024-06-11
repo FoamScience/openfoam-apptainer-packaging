@@ -2,15 +2,16 @@
 
 <p align="center">
 <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/FoamScience/openfoam-apptainer-packaging/ci.yaml?style=for-the-badge&logo=linuxcontainers&label=Test%20container">
-![OpenCFD OpenFOAM](https://img.shields.io/badge/OpenCFD_OpenFOAM-blue?style=for-the-badge)
-![Foudnation OpenFOAM](https://img.shields.io/badge/Foundation_Version-darkgreen?style=for-the-badge)
-![Foam Extend](https://img.shields.io/badge/Foam_Extend-teal?style=for-the-badge)
+<img alt="OpenCFD OpenFOAM" src="https://img.shields.io/badge/OpenCFD_OpenFOAM-blue?style=for-the-badge">
+<img alt="Foundation OpenFOAM" src="https://img.shields.io/badge/Foundation_Version-darkgreen?style=for-the-badge">
+<img alt="Foam Extend" src="https://img.shields.io/badge/Foam_Extend-teal?style=for-the-badge">
 </p>
 
 This is a project to automate the building of HPC-ready containers for OpenFOAM-based projects
 using `apptainer`.
 
-> [!NOTE] Developed in collaboration with
+> [!NOTE]
+> Developed in collaboration with
 > <a href="https://ianus-simulation.de/en/">
 > <img src="https://ianus-simulation.de/wp-content/uploads/2023/04/IANUS_Logo_color_color_bold_RGB.png" alt="IANUS SIMULATION" height="30px" style="vertical-align:middle"/>
 > </a>.
