@@ -1,11 +1,28 @@
 # Build apptainer containers for OpenFOAM-based projects
 
+<p align="center">
+<img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/FoamScience/openfoam-apptainer-packaging/ci.yaml?style=for-the-badge&logo=linuxcontainers&label=Test%20container">
+![OpenCFD OpenFOAM](https://img.shields.io/badge/OpenCFD_OpenFOAM-blue?style=for-the-badge)
+![Foudnation OpenFOAM](https://img.shields.io/badge/Foundation_Version-darkgreen?style=for-the-badge)
+![Foam Extend](https://img.shields.io/badge/Foam_Extend-teal?style=for-the-badge)
+</p>
+
+This is a project to automate the building of HPC-ready containers for OpenFOAM-based projects
+using `apptainer`.
+
+> [!NOTE] Developed in collaboration with
+> <a href="https://ianus-simulation.de/en/">
+> <img src="https://ianus-simulation.de/wp-content/uploads/2023/04/IANUS_Logo_color_color_bold_RGB.png" alt="IANUS SIMULATION" height="30px" style="vertical-align:middle"/>
+> </a>.
+
 ## Idea
 
 Automated workflows to:
 
-- Build a base `OpenFOAM` container (supporting different forks) to run on HPCs
-- Build project-specific containers that inherit from the base container
+- Build a base `OpenFOAM` container (supporting various forks and versions) to run on HPCs
+- Build project-specific containers that inherit from a target base container
+- OpenMPI is a first-class citizen: `mpirun -n 16 apptainer run container.sif "solver -parallel"`
+  should 'just work'.
 
 ## Quick Instructions
 
@@ -16,7 +33,7 @@ pip install ansible
 ansible-playbook build.yaml --extra-vars "@config.yaml"
 ```
 
-> [!NOTE]
+> [!TIP]
 > `ansible` is a nice tool to automate builds and make sure your host system has the required
 > dependencies to be able to build the containers.
 
@@ -30,11 +47,14 @@ containers/
 └── projects
     └── test-master.sif
 ```
-- Build a basic OpenMPI container `containers/basic/ubuntu-24.04-ompi-4.1.5.sif` 
-- Build a base (OpenCFD) OpenFOAM container `containers/basic/opencfd-openfoam.sif`
+- Build a basic OpenMPI container `containers/basic/ubuntu-24.04-ompi-4.1.5.sif`, or pull
+  it from [ghcr.io](https://ghcr.io) if possible
+- Build a base (OpenCFD) OpenFOAM container `containers/basic/opencfd-openfoam.sif`, or
+  pull it from [ghcr.io](https://ghcr.io) if possible
 - Build a test project container, to make sure MPI works alright
 
-Check [docs.md](docs.md) for details how the configuration is expected to be structured.
+Check the [docs.md](docs.md) for details on how the configuration file
+is expected to be structured.
 
 Here is a simplified sequence diagram describing the expected workflow:
 ```mermaid
