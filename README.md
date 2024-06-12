@@ -31,7 +31,7 @@ Automated workflows to:
 sudo add-apt-repository -y ppa:apptainer/ppa
 sudo apt install -y apptainer
 pip install ansible
-ansible-playbook build.yaml --extra-vars "@config.yaml"
+ansible-playbook build.yaml --extra-vars "original_dir=$PWD" --extra-vars "@config.yaml"
 ```
 
 > [!TIP]

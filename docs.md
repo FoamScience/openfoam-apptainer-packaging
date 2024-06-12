@@ -4,7 +4,9 @@
 2. Run the build playbook and point to the configuration:
 ```bash
 git clone https://github.com/FoamScience/openfoam-apptainer-packaging /tmp/of_tainers
-ansible-playbook /tmp/of_tainers/build.yaml --extra-vars "@/path/to/config.yaml"
+ansible-playbook /tmp/of_tainers/build.yaml \
+    --extra-vars "original_dir=$PWD" \
+    --extra-vars "@/path/to/config.yaml"
 ```
 
 A configuration file for building an (OpenCFD) OpenFOAM container should look like:
@@ -53,7 +55,7 @@ containers:
   projects:
     test:
       base_container: opencfd-openfoam
-      definition: projects/test.def
+      definition: projects/test.def # This is always relative to CWD (original_dir)
       build_args:
         branch:
           - master
