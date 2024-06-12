@@ -18,15 +18,19 @@
         fail_msg: "Apptainer version is not 1.3.1 or later"
     - name: Basic containers folder check
       file:
-        path: "./containers/basic"
+        path: "{{ original_dir }}/containers/basic"
         state: directory
     - name: Project containers folder check
       file:
-        path: "./containers/projects"
+        path: "{{ original_dir }}/containers/projects"
         state: directory
+    - name: Fail if original directory is not supplied
+      fail:
+        msg: 'The variable "original_dir" is undefined. run `ansible-playbook build.yaml --extra-vars="original_dir=$PWD @config.yaml"` instead'
+      when: containers is undefined
     - name: Fail if containers config is undefined
       fail:
-        msg: "The variable 'containers' is undefined. run `ansible-playbook build.yaml --extra-vars=@config.yaml` instead"
+        msg: 'The variable "containers" is undefined. run `ansible-playbook build.yaml --extra-vars="original_dir=$PWD @config.yaml"` instead'
       when: containers is undefined
     - name: Set default pull configuration
       set_fact:
@@ -42,9 +46,9 @@
       loop: "{{ containers.basic.items() }}"
     - name: Try to get MPI containers from registry
       shell: |
-        if [ ! -f ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
           apptainer pull \
-            ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif \
+            {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif \
             {{ pull.protocol }}://{{ pull.scope }}/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}
         fi
       loop: "{{ mpi_containers }}"
@@ -52,42 +56,42 @@
       when: pull.try_to_pull
     - name: Build OMPI base containers if .sif file doesn't exist
       shell: |
-        if [ ! -f ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
           apptainer build \
             --warn-unused-build-args \
             --build-arg OS_VERSION={{ item.os.version }} \
             --build-arg MPI_VERSION={{ item.mpi.version }} \
-            ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif \
-            ./basic/openmpi.def
+            {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif \
+            {{ playbook_dir }}/basic/openmpi.def
         else
-          echo "Container ./containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif already exists. Skipping build."
+          echo "Container {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif already exists. Skipping build."
         fi
       loop: "{{ mpi_containers }}"
     - name: Try to get base containers from registry
       shell: |
-        if [ ! -f ./containers/basic/{{ item.0 }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/{{ item.0 }}.sif ]; then
           apptainer pull \
-            ./containers/basic/{{ item.0 }}.sif \
+            {{ original_dir }}/containers/basic/{{ item.0 }}.sif \
             {{ pull.protocol }}://{{ pull.scope }}/{{ item.0 }}
         else
-          echo "Container ./containers/basic/{{ item.0 }}.sif already exists. Skipping pull."
+          echo "Container {{ original_dir }}/containers/basic/{{ item.0 }}.sif already exists. Skipping pull."
         fi
       loop: "{{ containers.basic.items() }}"
       ignore_errors: yes
       when: pull.try_to_pull
     - name: Build base containers if corresponding .sif files don't exist
       shell: |
-        if [ ! -f ./containers/basic/{{ item.0 }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/{{ item.0 }}.sif ]; then
           apptainer build --force \
                 --warn-unused-build-args \
                 --build-arg OS_VERSION={{ item.1.os.version }} \
                 --build-arg OPENFOAM_VERSION={{ item.1.openfoam.version }} \
                 --build-arg OPENFOAM_GIT_REF={{ item.1.openfoam.branch | default('default') }} \
                 --build-arg OPENMPI_VERSION={{ item.1.mpi.version }} \
-                ./containers/basic/{{ item.0 }}.sif \
-                ./basic/{{ item.1.openfoam.fork }}.def
+                {{ original_dir }}/containers/basic/{{ item.0 }}.sif \
+                {{ playbook_dir }}/basic/{{ item.1.openfoam.fork }}.def
         else
-          echo "Container ./containers/basic/{{ item.0 }}.sif already exists. Skipping build."
+          echo "Container {{ original_dir }}/containers/basic/{{ item.0 }}.sif already exists. Skipping build."
         fi
       loop: "{{ containers.basic.items() }}"
 
@@ -125,6 +129,6 @@
                 --build-arg OPENMPI_VERSION={{ containers.basic[item.base_container].mpi.version }} \
                 --build-arg OPENFOAM_VERSION={{ containers.basic[item.base_container].openfoam.version }} \
                 --build-arg OPENFOAM_GIT_REF={{ containers.basic[item.base_container].openfoam.git_ref | default('default') }} \
-                containers/projects/{{ item.name }}.sif \
-                {{ item.definition }}
+                {{ original_dir }}/containers/projects/{{ item.name }}.sif \
+                {{ original_dir }}/{{ item.definition }}
       loop: "{{ projects | list }}"
