@@ -124,6 +124,7 @@
                 {{ "--build-arg " ~ (key | upper) ~ "=" ~ value }}  {{ " " }} \
                 {%- endfor -%}  {{ " " }} \
                 {%- endif -%} \
+                --build-arg CONTAINERS_DIR={{ original_dir }}/containers \
                 --build-arg BASE_CONTAINER={{ item.base_container }} \
                 --build-arg OS_VERSION={{ containers.basic[item.base_container].os.version }} \
                 --build-arg OPENMPI_VERSION={{ containers.basic[item.base_container].mpi.version }} \

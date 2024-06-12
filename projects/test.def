@@ -10,7 +10,7 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: localimage
-From: containers/basic/{{ BASE_CONTAINER }}.sif
+From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 
 %arguments
     BASE_CONTAINER=opencfd-openfoam
