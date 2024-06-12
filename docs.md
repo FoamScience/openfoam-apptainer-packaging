@@ -75,10 +75,10 @@ definition file. It will be replaced with the possible values of `build_args.bra
 
 The definition files should also follow a set of rules:
 
-- The bootstrapping should be set to `localimage`, and `{{ BASE_CONTAINER }}` should be used as follows:
+- The bootstrapping should be set to `localimage`, and the appropriate build arguments should be used as follows:
 ```bash
 Bootstrap: localimage
-From: containers/basic/{{ BASE_CONTAINER }}.sif
+From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 ```
 - Even though the build argument for base images will be passed on the command line; it's recommended
   to give default values for them in the definition file anyway
