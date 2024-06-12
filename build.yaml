@@ -1,4 +1,4 @@
-# ansible-playbook build.yaml
+# ansible-playbook build.yaml --extra-vars="original_dir=$PWD" --extra-vars=@config.yaml
 ---
 
 - name: Check local requirements

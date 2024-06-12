@@ -39,7 +39,7 @@ jobs:
 
       - name: Build containers for OpenCFD's OpenFOAM
         run: |
-          ansible-playbook build.yaml --extra-vars="@config.yaml"
+          ansible-playbook build.yaml --extra-vars="original_dir=$PWD" --extra-vars="@config.yaml"
 
       - name: Run test MPI application with host and container MPIs
         run: |
