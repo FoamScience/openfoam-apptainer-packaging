@@ -11,7 +11,11 @@ This is a project to automate the building of HPC-ready containers for OpenFOAM-
 using `apptainer`.
 
 > [!NOTE]
-> Developed in collaboration with
+> Brought to you by SDL Energy Conversion from
+> <a href="https://www.nhr4ces.de/simulation-and-data-labs/sdl-energy-conversion/">
+> <img src="https://www.itc.rwth-aachen.de/global/show_picture.asp?id=aaaaaaaabvbpmgd&w=223&q=77" alt="NHR4CES" height="50px" style="vertical-align:middle"/>
+> </a>
+> in collaboration with
 > <a href="https://ianus-simulation.de/en/">
 > <img src="https://ianus-simulation.de/wp-content/uploads/2023/04/IANUS_Logo_color_color_bold_RGB.png" alt="IANUS SIMULATION" height="30px" style="vertical-align:middle"/>
 > </a>.
