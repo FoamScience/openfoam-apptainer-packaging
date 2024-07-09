@@ -21,8 +21,7 @@ From: containers/basic/ubuntu-{{ OS_VERSION }}-ompi-{{ OPENMPI_VERSION }}.sif
 %post
     curl https://dl.openfoam.com/add-debian-repo.sh | bash
     DEBIAN_FRONTEND=noninteractive
-    apt-get -y install --no-install-recommends openfoam{{ OPENFOAM_VERSION }}-default python3
-    rm -rf /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }}/tutorials/*
+    apt-get -y install --no-install-recommends openfoam{{ OPENFOAM_VERSION }}-dev python3
     dpkg --remove --force-depends libopenmpi-dev openmpi-bin openmpi-common
     jq --arg app openfoam --arg commit {{ OPENFOAM_GIT_REF }} \
         --arg branch {{ OPENFOAM_GIT_REF }} \
@@ -45,9 +44,9 @@ From: containers/basic/ubuntu-{{ OS_VERSION }}-ompi-{{ OPENMPI_VERSION }}.sif
 %runscript
     /bin/bash -c 'cd /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
     if [ $# -eq 0 ]; then
-        /bin/bash -c "source /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }}/etc/bashrc && /bin/bash --login"
+        /usr/bin/openfoam{{ OPENFOAM_VERSION }}
     else
-        /bin/bash -c "source /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }}/etc/bashrc && $@"
+        /usr/bin/openfoam{{ OPENFOAM_VERSION }} $@
     fi
 
 %labels
