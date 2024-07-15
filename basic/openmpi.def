@@ -10,35 +10,37 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: docker
-From: ubuntu:{{ OS_VERSION }}
+From: {{ OS_DISTRO }}:{{ OS_VERSION }}
 
 %arguments
+    OS_DISTRO=ubuntu
     OS_VERSION=24.04
-    OPENMPI_VERSION=4.1.5
+    MPI_IMPLEMENTATION=openmpi
+    MPI_VERSION=4.1.5
 
 %post
     DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get -y install --no-install-recommends \
         curl gcc g++ gfortran make file jq ca-certificates bzip2 git
-    export OPENMPI_VERSION={{ OPENMPI_VERSION }}
-    ompi_short=$(echo {{ OPENMPI_VERSION }} | cut -d '.' -f1-2)
-    export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v$ompi_short/openmpi-{{ OPENMPI_VERSION }}.tar.bz2"
+    export MPI_VERSION={{ MPI_VERSION }}
+    ompi_short=$(echo {{ MPI_VERSION }} | cut -d '.' -f1-2)
+    export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v$ompi_short/openmpi-{{ MPI_VERSION }}.tar.bz2"
     export OMPI_DIR=/opt/ompi
     mkdir -p $OMPI_DIR /tmp/ompi
-    cd /tmp/ompi && curl -O $OMPI_URL && tar -xjf openmpi-$OPENMPI_VERSION.tar.bz2
-    cd /tmp/ompi/openmpi-$OPENMPI_VERSION && ./configure --prefix=$OMPI_DIR && make -j$(nproc) install
+    cd /tmp/ompi && curl -O $OMPI_URL && tar -xjf openmpi-$MPI_VERSION.tar.bz2
+    cd /tmp/ompi/openmpi-$MPI_VERSION && ./configure --prefix=$OMPI_DIR && make -j$(nproc) install
     export PATH=$OMPI_DIR/bin:$PATH
     export LD_LIBRARY_PATH=$OMPI_DIR/lib:$LD_LIBRARY_PATH
     echo '{}' > /apps.json
     jq --arg app openmpi \
         '.[$app] |= if . == null then
         {
-            version: "{{ OPENMPI_VERSION }}"
+            version: "{{ MPI_VERSION }}"
         }
         else . +
         {
-            version: "{{ OPENMPI_VERSION }}"
+            version: "{{ MPI_VERSION }}"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 

@@ -15,7 +15,7 @@
       assert:
         that:
           - apptainer_version_output.stdout.split(' ')[2] is version("1.3.1", ">=")
-        fail_msg: "Apptainer version is not 1.3.1 or later"
+        fail_msg: "Supported apptainer versions are 1.3.1 or newer"
     - name: Basic containers folder check
       file:
         path: "{{ original_dir }}/containers/basic"
@@ -35,6 +35,10 @@
     - name: Set default pull configuration
       set_fact:
         pull: "{{ pull | default({'try_to_pull': true, 'protocol': 'oras', 'scope': 'ghcr.io/foamscience'}) }}"
+    - name: Process extra basic definitions
+      include_tasks:
+        file: "{{ playbook_dir }}/partials/include_extra_basics.yaml"
+      when: containers.extra_basics is defined
 
 - name: Base containers
   hosts: "{{ groups['build_hosts'] | default('localhost') }}"
@@ -46,25 +50,29 @@
       loop: "{{ containers.basic.items() }}"
     - name: Try to get MPI containers from registry
       shell: |
-        if [ ! -f {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
           apptainer pull \
-            {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif \
-            {{ pull.protocol }}://{{ pull.scope }}/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}
+            {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif \
+            {{ pull.protocol }}://{{ pull.scope }}/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}
         fi
       loop: "{{ mpi_containers }}"
       ignore_errors: yes
       when: pull.try_to_pull
-    - name: Build OMPI base containers if .sif file doesn't exist
+    - name: Build MPI base containers if .sif file doesn't exist
+      vars:
+        distro: "{{ item.os.distro | regex_replace('_', '/') }}"
       shell: |
-        if [ ! -f {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
           apptainer build \
             --warn-unused-build-args \
+            --build-arg OS_DISTRO={{ distro }} \
             --build-arg OS_VERSION={{ item.os.version }} \
+            --build-arg MPI_IMPLEMENTATION={{ item.mpi.implementation }} \
             --build-arg MPI_VERSION={{ item.mpi.version }} \
-            {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif \
-            {{ playbook_dir }}/basic/openmpi.def
+            {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif \
+            {{ playbook_dir }}/basic/{{ item.mpi.implementation }}.def
         else
-          echo "Container {{ original_dir }}/containers/basic/ubuntu-{{ item.os.version }}-ompi-{{ item.mpi.version }}.sif already exists. Skipping build."
+          echo "Container {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif already exists. Skipping build."
         fi
       loop: "{{ mpi_containers }}"
     - name: Try to get base containers from registry
@@ -80,16 +88,20 @@
       ignore_errors: yes
       when: pull.try_to_pull
     - name: Build base containers if corresponding .sif files don't exist
+      vars:
+        distro: "{{ item.1.os.distro | regex_replace('_', '/') }}"
       shell: |
         if [ ! -f {{ original_dir }}/containers/basic/{{ item.0 }}.sif ]; then
           apptainer build --force \
                 --warn-unused-build-args \
+                --build-arg OS_DISTRO={{ distro }} \
                 --build-arg OS_VERSION={{ item.1.os.version }} \
-                --build-arg OPENFOAM_VERSION={{ item.1.openfoam.version }} \
-                --build-arg OPENFOAM_GIT_REF={{ item.1.openfoam.branch | default('default') }} \
-                --build-arg OPENMPI_VERSION={{ item.1.mpi.version }} \
+                --build-arg MPI_IMPLEMENTATION={{ item.1.mpi.implementation }} \
+                --build-arg MPI_VERSION={{ item.1.mpi.version }} \
+                --build-arg FRAMEWORK_VERSION={{ item.1.framework.version }} \
+                --build-arg FRAMEWORK_GIT_REF={{ item.1.framework.branch | default('default') }} \
                 {{ original_dir }}/containers/basic/{{ item.0 }}.sif \
-                {{ playbook_dir }}/basic/{{ item.1.openfoam.fork }}.def
+                {{ playbook_dir }}/basic/{{ item.1.framework.definition }}.def
         else
           echo "Container {{ original_dir }}/containers/basic/{{ item.0 }}.sif already exists. Skipping build."
         fi
@@ -127,9 +139,9 @@
                 --build-arg CONTAINERS_DIR={{ original_dir }}/containers \
                 --build-arg BASE_CONTAINER={{ item.base_container }} \
                 --build-arg OS_VERSION={{ containers.basic[item.base_container].os.version }} \
-                --build-arg OPENMPI_VERSION={{ containers.basic[item.base_container].mpi.version }} \
-                --build-arg OPENFOAM_VERSION={{ containers.basic[item.base_container].openfoam.version }} \
-                --build-arg OPENFOAM_GIT_REF={{ containers.basic[item.base_container].openfoam.git_ref | default('default') }} \
+                --build-arg MPI_VERSION={{ containers.basic[item.base_container].mpi.version }} \
+                --build-arg FRAMEWORK_VERSION={{ containers.basic[item.base_container].framework.version }} \
+                --build-arg FRAMEWORK_GIT_REF={{ containers.basic[item.base_container].framework.git_ref | default('default') }} \
                 {{ original_dir }}/containers/projects/{{ item.name }}.sif \
                 {{ original_dir }}/{{ item.definition }}
       loop: "{{ projects | list }}"

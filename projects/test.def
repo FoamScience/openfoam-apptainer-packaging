@@ -14,10 +14,12 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 
 %arguments
     BASE_CONTAINER=opencfd-openfoam
+    OS_DISTRO=ubuntu
     OS_VERSION=24.04
-    OPENMPI_VERSION=4.1.5
-    OPENFOAM_VERSION=2312
-    OPENFOAM_GIT_REF=default
+    MPI_IMPLEMENTATION=openmpi
+    MPI_VERSION=4.1.5
+    FRAMEWORK_VERSION=2312
+    FRAMEWORK_GIT_REF=default
 
 %files
     OMPIFoam /opt/OMPIFoam
@@ -25,7 +27,7 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 %post
     echo "Testing OpenMPI implementation"
     /bin/bash -c "cd /opt/OMPIFoam && mpicc -o ompiTest testOMPI.cpp"
-    /bin/bash -c "source /usr/lib/openfoam/openfoam{{ OPENFOAM_VERSION }}/etc/bashrc && cd /opt/OMPIFoam && wmake"
+    /bin/bash -c "source /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc && cd /opt/OMPIFoam && wmake"
     jq --arg app test --arg branch {{ BRANCH }} \
         '.[$app] |= if . == null then
         {

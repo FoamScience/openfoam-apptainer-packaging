@@ -1,18 +1,32 @@
 # containers section defines what containers to build
 containers:
+  # This is either a local path, or a Git repo URI
+  # to load your own basic definition files; they can then be used in framework.definition below
+  #extra_basics: /tmp/extrabasics
   # This section builds base containers in containers/basic
   basic:
     # you get opencfd-openfoam.sif and openmpi-4.1.5-ubuntu-24.04.sif from the following entry
-    opencfd-openfoam: # base container identifier
+    lammps: # base container identifier
       os:
         distro: ubuntu # the only supported distro atm
         version: 24.04 # needs to be recent
       mpi:
-        implementation: openmpi # the only supported MPI implementation atm
+        implementation: openmpi # there must be a openmpi.def in basic/ folder
         version: 4.1.5 # recommended to match host MPI at least in major version number
-      openfoam:
-        fork: com-openfoam # org-openfoam, and foam-extend also supported
-        version: 2312 # specific version number for the target fork
+      framework:
+        definition: lammps # org-openfoam, and foam-extend also supported, see basic/
+        version: patch_27Jun2024 # specific version number for the target fork
+    # you get foam-extend.sif from the following entry
+    #opencfd-openfoam: # base container identifier
+    #  os:
+    #    distro: ubuntu # the only supported distro atm for this specific combination of settings
+    #    version: 24.04 # needs to be recent
+    #  mpi:
+    #    implementation: openmpi # there must be a openmpi.def in basic/ folder
+    #    version: 4.1.5 # recommended to match host MPI at least in major version number
+    #  framework:
+    #    definition: com-openfoam # org-openfoam, and foam-extend also supported, see basic/
+    #    version: 2312 # specific version number for the target fork
     # you get foam-extend.sif from the following entry
     #foam-extend:
     #  os:
@@ -26,15 +40,15 @@ containers:
     #    version: 5.0
     #    git_ref: master # optional (default: default)
   # This section builds final containers in containers/projects
-  projects:
-    # you get test-master.sif and test-dev.sif from the following entry
-    test:
-      base_container: opencfd-openfoam # what base container to build the project against (from containers.basic above)
-      definition: projects/test.def # path to container definition file (relative to CWD)
-      build_args: # case-insensitive, optional build arguments for apptainer
-        branch:
-          - master  # will be passed as `--build-arg BRANCH=master` to `apptainer build`
-          #- dev  # will be passed as `--build-arg BRANCH=master` to `apptainer build`
+  #projects:
+  #  # you get test-master.sif and test-dev.sif from the following entry
+  #  test:
+  #    base_container: opencfd-openfoam # what base container to build the project against (from containers.basic above)
+  #    definition: projects/test.def # path to container definition file (relative to CWD)
+  #    build_args: # case-insensitive, optional build arguments for apptainer
+  #      branch:
+  #        - master  # will be passed as `--build-arg BRANCH=master` to `apptainer build`
+  #        #- dev  # will be passed as `--build-arg BRANCH=master` to `apptainer build`
     # you get extend-test.sif from the following entry
     #extend-test:
     #  base_container: foam-extend
@@ -42,6 +56,6 @@ containers:
 
 # pull section sets pull paramters
 pull:
-  try_to_pull: true # Do we try to pull from registry?
+  try_to_pull: false # Do we try to pull from registry?
   protocol: "oras" # docker, or library as Pull protocol
   scope: "ghcr.io/foamscience" # so oras://ghcr.io/foamscience/<container-name>:latest is used
