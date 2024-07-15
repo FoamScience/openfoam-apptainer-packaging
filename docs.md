@@ -232,12 +232,12 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
 %post
     . /opt/spack/share/spack/setup-env.sh
     # MPI_IMPLEMENTATION will be "spack_openmpi" as specified in the config
-    mpi_impl="${{{ MPI_IMPLEMENTATION }}#spack_}"
-    spack install $mpi_impl@{{ MPI_VERSION }}
+    mpi_impl=$(expr "{{ MPI_IMPLEMENTATION }}" : 'spack_\(.*\)')
+    spack install $mpi_impl@{{ MPI_VERSION }} jq
 ```
 > `/tmp/spack_containers/basic/spack_openfoam.def` is also very similar
-> but must base itself off of the generated MPI container. See original `basic`
-> folder for inspiration.
+> but must base itself off of the generated MPI container. A full implementation
+> of this experiment is provided at [spack-apptainer-containers](https://github.com/FoamScience/spack-apptainer-containers)
 
 And the basic container in `config.yaml` can look like this:
 ```yaml
