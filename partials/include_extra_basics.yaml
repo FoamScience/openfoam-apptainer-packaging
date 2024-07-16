@@ -1,0 +1,17 @@
+---
+- name: Determine if the extra_basics path is a URL
+  set_fact:
+    is_basics_url: "{{ containers.extra_basics | regex_search('^(http|https|git|ssh)://') is not none }}"
+- name: Clone git repository if extras is a URL
+  git:
+    repo: "{{ source_path }}"
+    dest: "/tmp/extra_basic_defs"
+  when: is_basics_url
+- name: Copy extra basic definition files from repo to @build folder
+  shell: |
+    find /tmp/extra_basic_defs/basic -type f -name '*def' -exec cp {} ./basic/ \;
+  when: is_basics_url
+- name: Copy local extra basic definition files to @build folder
+  shell: |
+    find {{ containers.extra_basics }}/basic -type f -name '*def' -exec cp {} ./basic/ \;
+  when: not is_basics_url

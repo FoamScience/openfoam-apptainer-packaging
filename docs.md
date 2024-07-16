@@ -1,4 +1,9 @@
-## Build OpenFOAM apptainer containers
+> We take OpenFOAM as an example here, but containers for any other HPC software
+> package can be built in the same way.
+
+## Build apptainer containers for OpenFOAM 
+
+You only need to:
 
 1. Supply a configuration file (look at [config.yaml](config.yaml) for an example)
 2. Run the build playbook and point to the configuration:
@@ -20,8 +25,8 @@ containers:
       mpi:
         implementation: openmpi 
         version: 4.1.5 
-      openfoam:
-        fork: com-openfoam 
+      framework:
+        definition: com-openfoam 
         version: 2312 
 ```
 
@@ -31,7 +36,7 @@ will try to pull some base containers from a registry, and build them only if th
 unsuccessful. Pull-related behaviour can be configured in a `pull` section
 (again, refer to [config.yaml](config.yaml) for an example).
 
-## Build containers for your OpenFOAM projects
+## Build containers for your OpenFOAM-based projects
 
 1. Add your project to the configuration file.
 2. Write a [definition file](https://apptainer.org/docs/user/main/definition_files.html) for your project.
@@ -49,8 +54,8 @@ containers:
       mpi:
         implementation: openmpi
         version: 4.1.5
-      openfoam:
-        fork: com-openfoam
+      framework:
+        definition: com-openfoam
         version: 2312
   projects:
     test:
@@ -75,20 +80,23 @@ definition file. It will be replaced with the possible values of `build_args.bra
 
 The definition files should also follow a set of rules:
 
-- The bootstrapping should be set to `localimage`, and the appropriate build arguments should be used as follows:
+- The bootstrapping should be set to `localimage`,
+  and the appropriate build arguments should be used as follows:
 ```bash
 Bootstrap: localimage
 From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 ```
-- Even though the build argument for base images will be passed on the command line; it's recommended
-  to give default values for them in the definition file anyway
+- Even though the build argument for base images will be passed on the command line;
+  it's recommended to give default values for them in the definition file anyway
 ```bash
 %arguments
     BASE_CONTAINER=opencfd-openfoam
+    OS_DISTRO=ubuntu
     OS_VERSION=24.04
-    OPENMPI_VERSION=4.1.5
-    OPENFOAM_VERSION=2312
-    OPENFOAM_GIT_REF=default
+    MPI_IMPLEMENTATION=openmpi
+    MPI_VERSION=4.1.5
+    FRAMEWORK_VERSION=2312
+    FRAMEWORK_GIT_REF=default
 ```
 - In the definition file, important metadata about the container should be logged to `/apps.json`. Refer to
   the [projects/test.def](projects/test.def) example for inspiration.
@@ -204,3 +212,62 @@ docker scout quickview fs://ubuntu-24.04-ompi-4.1.5
 # of most of the vulnerabilities
 docker scout cves fs://ubuntu-24.04-ompi-4.1.5
 ```
+
+## Load your own base containers
+
+The `config.yaml` file can take a `containers.extra_basics` entry, which can be either a
+git URI or a local path to a folder containing a `basic` subfolder which hosts your custom
+definition files for basic containers. These definitions will then be usable as
+`containers.basic.<container-name>.framework.definition`
+and even `containers.basic.<container-name>.mpi.implementation`.
+
+The  [spack-apptainer-containers](https://github.com/FoamScience/spack-apptainer-containers)
+repository demonstrates how custom base images can be used to build spack-powered containers
+
+
+In `/tmp/spack_containers/basic/spack_openmpi.def` you can have:
+```
+Bootstrap: docker
+From: {{ OS_DISTRO }}:{{ OS_VERSION }}
+# This will expand to
+# From: spack/ubuntu-bionic:latest
+
+%post
+    . /opt/spack/share/spack/setup-env.sh
+    # MPI_IMPLEMENTATION will be "spack_openmpi" as specified in the config
+    mpi_impl=$(expr "{{ MPI_IMPLEMENTATION }}" : 'spack_\(.*\)')
+    spack install ${mpi_impl}@{{ MPI_VERSION }} jq
+```
+> `/tmp/spack_containers/basic/spack_openfoam.def` is also very similar
+> but must base itself off of the generated MPI container. Look at
+> [spack-apptainer-containers](https://github.com/FoamScience/spack-apptainer-containers)
+> for an example implementation
+
+And the basic container in `config.yaml` can look like this:
+```yaml
+containers:
+  extra_basics: https://github.com/FoamScience/spack-apptainer-containers
+  basic:
+    spack_openfoam: # you get containers/basic/spack_openfoam.sif
+      os:
+        distro: spack_ubuntu-bionic # the underscore will be converted to / inside the definition files
+                # so this bases the container off the spack/ubuntu-bionic:latest docker image
+                # To build on top of setup, change this to spack_centos7
+                # BUT this may not always work, an experimental feature at best
+        version: latest
+      mpi:
+        implementation: spack_openmpi # looks for spack_openmpi.def in basic folder
+        version: 4.1.5
+      framework:
+        definition: spack_openfoam # looks for spack_openfoam.def in basic folder
+        version: 2312
+```
+
+It's important to understand that the ansible playbook will always generate containers with MPI support
+as a first layer, then generate the basic framework container on top of that.
+
+> [!IMPORTANT]
+> Although definition files leveraging `spack` will be generally shorter and easier to maintain, the resulting
+> containers will be much larger than using distribution package managers. Also, at the time of writing,
+> `spack` doesn't allow for easy switching of the underlying distribution as random installation errors
+> arise for the same definition file if you base it on ubuntu and centos 7 images.
