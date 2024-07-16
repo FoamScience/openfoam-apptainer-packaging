@@ -221,7 +221,10 @@ definition files for basic containers. These definitions will then be usable as
 `containers.basic.<container-name>.framework.definition`
 and even `containers.basic.<container-name>.mpi.implementation`.
 
-As an example, let's consider using `spack` containers instead.
+The  [spack-apptainer-containers](https://github.com/FoamScience/spack-apptainer-containers)
+repository demonstrates how custom base images can be used to build spack-powered containers
+
+
 In `/tmp/spack_containers/basic/spack_openmpi.def` you can have:
 ```
 Bootstrap: docker
@@ -233,21 +236,24 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
     . /opt/spack/share/spack/setup-env.sh
     # MPI_IMPLEMENTATION will be "spack_openmpi" as specified in the config
     mpi_impl=$(expr "{{ MPI_IMPLEMENTATION }}" : 'spack_\(.*\)')
-    spack install $mpi_impl@{{ MPI_VERSION }} jq
+    spack install ${mpi_impl}@{{ MPI_VERSION }} jq
 ```
 > `/tmp/spack_containers/basic/spack_openfoam.def` is also very similar
-> but must base itself off of the generated MPI container. A full implementation
-> of this experiment is provided at [spack-apptainer-containers](https://github.com/FoamScience/spack-apptainer-containers)
+> but must base itself off of the generated MPI container. Look at
+> [spack-apptainer-containers](https://github.com/FoamScience/spack-apptainer-containers)
+> for an example implementation
 
 And the basic container in `config.yaml` can look like this:
 ```yaml
 containers:
-  extra_basics: /tmp/spack_containers
+  extra_basics: https://github.com/FoamScience/spack-apptainer-containers
   basic:
-    spack_openfoam:
+    spack_openfoam: # you get containers/basic/spack_openfoam.sif
       os:
         distro: spack_ubuntu-bionic # the underscore will be converted to / inside the definition files
                 # so this bases the container off the spack/ubuntu-bionic:latest docker image
+                # To build on top of setup, change this to spack_centos7
+                # BUT this may not always work, an experimental feature at best
         version: latest
       mpi:
         implementation: spack_openmpi # looks for spack_openmpi.def in basic folder
