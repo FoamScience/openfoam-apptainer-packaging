@@ -88,13 +88,12 @@
       ignore_errors: yes
       when: pull.try_to_pull
     - name: Build base containers if corresponding .sif files don't exist
-      vars:
-        distro: "{{ item.1.os.distro | regex_replace('_', '/') }}"
       shell: |
         if [ ! -f {{ original_dir }}/containers/basic/{{ item.0 }}.sif ]; then
+          cd {{ original_dir }}
           apptainer build --force \
                 --warn-unused-build-args \
-                --build-arg OS_DISTRO={{ distro }} \
+                --build-arg OS_DISTRO={{ item.1.os.distro  }} \
                 --build-arg OS_VERSION={{ item.1.os.version }} \
                 --build-arg MPI_IMPLEMENTATION={{ item.1.mpi.implementation }} \
                 --build-arg MPI_VERSION={{ item.1.mpi.version }} \
@@ -103,7 +102,7 @@
                 {{ original_dir }}/containers/basic/{{ item.0 }}.sif \
                 {{ playbook_dir }}/basic/{{ item.1.framework.definition }}.def
         else
-          echo "Container {{ original_dir }}/containers/basic/{{ item.0 }}.sif already exists. Skipping build."
+          echo "Container {{ original_dir }}/containers/basic/{{ item.1.framework.definition }}.sif already exists. Skipping build."
         fi
       loop: "{{ containers.basic.items() }}"
 
