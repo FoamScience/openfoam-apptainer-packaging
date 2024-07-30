@@ -49,13 +49,11 @@
         mpi_containers: "{{ (mpi_containers | default([]) + [dict({'os': item.1.os, 'mpi': item.1.mpi})]) | unique }}"
       loop: "{{ containers.basic.items() }}"
     - name: Try to get MPI containers from registry
-      vars:
-        distro: "{{ item.os.distro | regex_replace('_', '/') }}"
       shell: |
-        if [ ! -f {{ original_dir }}/containers/basic/{{ distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
           apptainer pull \
-            {{ original_dir }}/containers/basic/{{ distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif \
-            {{ pull.protocol }}://{{ pull.scope }}/{{ distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}
+            {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif \
+            {{ pull.protocol }}://{{ pull.scope }}/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}
         fi
       loop: "{{ mpi_containers }}"
       ignore_errors: yes
@@ -64,17 +62,17 @@
       vars:
         distro: "{{ item.os.distro | regex_replace('_', '/') }}"
       shell: |
-        if [ ! -f {{ original_dir }}/containers/basic/{{ distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
+        if [ ! -f {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
           apptainer build \
             --warn-unused-build-args \
-            --build-arg OS_DISTRO={{ item.os.distro }} \
+            --build-arg OS_DISTRO={{ distro }} \
             --build-arg OS_VERSION={{ item.os.version }} \
             --build-arg MPI_IMPLEMENTATION={{ item.mpi.implementation }} \
             --build-arg MPI_VERSION={{ item.mpi.version }} \
-            {{ original_dir }}/containers/basic/{{ distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif \
+            {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif \
             {{ playbook_dir }}/basic/{{ item.mpi.implementation }}.def
         else
-          echo "Container {{ original_dir }}/containers/basic/{{ distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif already exists. Skipping build."
+          echo "Container {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif already exists. Skipping build."
         fi
       loop: "{{ mpi_containers }}"
     - name: Try to get base containers from registry
