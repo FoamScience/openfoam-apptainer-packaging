@@ -65,7 +65,7 @@
         if [ ! -f {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
           apptainer build \
             --warn-unused-build-args \
-            --build-arg OS_DISTRO={{ distro }} \
+            --build-arg OS_DISTRO={{ item.os.distro }} \
             --build-arg OS_VERSION={{ item.os.version }} \
             --build-arg MPI_IMPLEMENTATION={{ item.mpi.implementation }} \
             --build-arg MPI_VERSION={{ item.mpi.version }} \
