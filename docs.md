@@ -1,3 +1,4 @@
+> [!IMPORTANT]
 > We take OpenFOAM as an example here, but containers for any other HPC software
 > package can be built in the same way.
 
@@ -105,6 +106,17 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
   interactive session. Refer to [basic/com-openfoam.def](basic/com-openfoam.def) for an example.
 
 ## Best practices for container usage
+
+> [!TIP] 
+> The default containers are designed to run in an as-is state, only writing to your home folder.
+> If you need to constantly change stuff in `/opt` for example inside the container, you have
+> to create an overlay image and load it with the container when running it:
+> ```bash
+> apptainer overlay create --size 1024 overlay.img
+> apptainer run --overlay overlay.img <your-container>.sif
+> ```
+> This is useful for example if you want to continuously develop on the container. Learn more
+> about [Persistent Overlays](https://apptainer.org/docs/user/latest/persistent_overlays.html)
 
 ```bash
 # Note the quoting of the command for openfoam-based containers (since it is fed to Bash as-is)
