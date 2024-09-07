@@ -101,6 +101,7 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 ```
 - In the definition file, important metadata about the container should be logged to `/apps.json`. Refer to
   the [projects/test.def](projects/test.def) example for inspiration.
+  - This allows users to run `apptainer run container.sif info` to get the contents of `apps.json`
 - If your project requires sourcing an environment file (`.bashrc` or the like), it's good practice to set
   the `%runscript` section so that the file is sourced before the user is dropped into a shell for an
   interactive session. Refer to [basic/com-openfoam.def](basic/com-openfoam.def) for an example.
@@ -120,7 +121,7 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 
 ```bash
 # Note the quoting of the command for openfoam-based containers (since it is fed to Bash as-is)
-apptainer run containers/projects/test-master.sif "jq '.' /apps.json"
+apptainer run containers/projects/test-master.sif info
 ```
 ```json
 {
@@ -143,7 +144,7 @@ apptainer run containers/projects/test-master.sif "jq '.' /apps.json"
 
 Although it is up to the maintainer to decide what to put in the metadata,
 each project container will (usually) log important metadata to its `/apps.json`
-which can be queried with `jq`.
+which can be queried with `jq` (or by issuing the info command from the container).
 
 The previous snippet suggests that the container provides two executables for testing
 the OpenMPI implementation, and that is built on top of `(OpenCFD) OpenFOAM v2312`. Because
