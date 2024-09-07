@@ -18,6 +18,9 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
     MPI_IMPLEMENTATION=openmpi
     MPI_VERSION=4.1.5
 
+%files
+    partials/info /usr/bin/info
+
 %post
     DEBIAN_FRONTEND=noninteractive
     apt-get update

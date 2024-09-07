@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Default jq query is '.'
+jq_query="."
+if [ $# -gt 0 ]; then
+  jq_query="$1"
+fi
+jq "$jq_query" /apps.json
