@@ -37,15 +37,28 @@
   loop: "{{ buildarg_items[1:] }}"
   when: "'build_args' in project.1 and project.1.build_args.keys() | length > 1"
 
-- name: Containers with more than one build argument
+- name: Containers with two build arguments
   set_fact:
     projects: >-
       {{
         projects  | default([]) + [
         project.1 | combine({
-          'name': project.0 + '-' + item | join('-'),
+          'name': project.0 + '-' + (item | join('-')),
           'build_args': dict(project.1.build_args.keys() | zip(item))
         })] | list
       }}
   loop: "{{ combos }}"
-  when: "'build_args' in project.1 and project.1.build_args.keys() | length > 1"
+  when: "'build_args' in project.1 and project.1.build_args.keys() | length == 2"
+
+- name: Containers with more than two build arguments
+  set_fact:
+    projects: >-
+      {{
+        projects  | default([]) + [
+        project.1 | combine({
+          'name': project.0 + '-' + (item | flatten | join('-')),
+          'build_args': dict(project.1.build_args.keys() | zip(item | flatten))
+        })] | list
+      }}
+  loop: "{{ combos }}"
+  when: "'build_args' in project.1 and project.1.build_args.keys() | length > 2"
