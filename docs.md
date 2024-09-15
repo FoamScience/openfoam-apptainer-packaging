@@ -120,7 +120,6 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 > about [Persistent Overlays](https://apptainer.org/docs/user/latest/persistent_overlays.html)
 
 ```bash
-# Note the quoting of the command for openfoam-based containers (since it is fed to Bash as-is)
 apptainer run containers/projects/test-master.sif info
 ```
 ```json
