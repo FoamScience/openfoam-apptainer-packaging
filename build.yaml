@@ -98,7 +98,7 @@
                 --build-arg MPI_IMPLEMENTATION={{ item.1.mpi.implementation }} \
                 --build-arg MPI_VERSION={{ item.1.mpi.version }} \
                 --build-arg FRAMEWORK_VERSION={{ item.1.framework.version }} \
-                --build-arg FRAMEWORK_GIT_REF={{ item.1.framework.branch | default('default') }} \
+                --build-arg FRAMEWORK_GIT_REF={{ item.1.framework.git_ref | default('default') }} \
                 {{ original_dir }}/containers/basic/{{ item.0 }}.sif \
                 {{ playbook_dir }}/basic/{{ item.1.framework.definition }}.def
         else

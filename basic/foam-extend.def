@@ -35,7 +35,7 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{ MPI_IMPLEMENTATION }}
     nProcs=$(nproc)
     /bin/bash -c "cd /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }} && source etc/bashrc && ./Allwmake.firstInstall -j $nProcs"
     rm -rf /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/tutorials/*
-    FRAMEWORK_COMMIT_HASH=$(git -C /opt/foam/foam-extend-{{ OF_VERSION }} rev-parse HEAD)
+    FRAMEWORK_COMMIT_HASH=$(git -C /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }} rev-parse HEAD)
     jq --arg app openfoam --arg commit $FRAMEWORK_COMMIT_HASH \
         --arg branch {{ FRAMEWORK_GIT_REF }} \
         '.[$app] |= if . == null then
