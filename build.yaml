@@ -70,7 +70,8 @@
             --build-arg MPI_IMPLEMENTATION={{ item.mpi.implementation }} \
             --build-arg MPI_VERSION={{ item.mpi.version }} \
             {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif \
-            {{ playbook_dir }}/basic/{{ item.mpi.implementation }}.def
+            {{ playbook_dir }}/basic/{{ item.mpi.implementation }}.def \
+            > {{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.log 2>&1
         else
           echo "Container {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif already exists. Skipping build."
         fi
@@ -100,7 +101,8 @@
                 --build-arg FRAMEWORK_VERSION={{ item.1.framework.version }} \
                 --build-arg FRAMEWORK_GIT_REF={{ item.1.framework.git_ref | default('default') }} \
                 {{ original_dir }}/containers/basic/{{ item.0 }}.sif \
-                {{ playbook_dir }}/basic/{{ item.1.framework.definition }}.def
+                {{ playbook_dir }}/basic/{{ item.1.framework.definition }}.def \
+                > {{ item.0 }}.log 2>&1
         else
           echo "Container {{ original_dir }}/containers/basic/{{ item.1.framework.definition }}.sif already exists. Skipping build."
         fi
@@ -142,5 +144,6 @@
                 --build-arg FRAMEWORK_VERSION={{ containers.basic[item.base_container].framework.version }} \
                 --build-arg FRAMEWORK_GIT_REF={{ containers.basic[item.base_container].framework.git_ref | default('default') }} \
                 {{ original_dir }}/containers/projects/{{ item.name }}.sif \
-                {{ original_dir }}/{{ item.definition }}
+                {{ original_dir }}/{{ item.definition }} \
+                > {{ item.name }}.log 2>&1
       loop: "{{ projects | list }}"
