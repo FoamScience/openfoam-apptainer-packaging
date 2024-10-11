@@ -54,4 +54,10 @@ jobs:
             exit 1
           else
             echo "Outputs are identical"
-          fi
+
+      - name: Upload log files on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: failing-log-files
+          path: '**/*.log'
