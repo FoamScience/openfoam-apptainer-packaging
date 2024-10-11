@@ -26,6 +26,13 @@ jobs:
           sudo apt-get install -y apptainer libopenmpi-dev python3-pip
           pip install ansible
 
+      - name: Get libopenmpi-dev version
+        id: get_mpi_version
+        run: |
+          mpi_version=$(dpkg-query -W -f='${Version}' libopenmpi-dev | cut -f1 -d'-')
+          echo "Setting MPI version to: $mpi_version"
+          sed -i "s/version: 4.1.5/version: $mpi_version/g" config.yaml
+
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
