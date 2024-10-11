@@ -57,7 +57,9 @@ jobs:
 
       - name: Upload log files on failure
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: failing-log-files
-          path: '**/*.log'
+          name: failing-log-container-files
+          path: |
+            **/*.log
+            **/*.sif
