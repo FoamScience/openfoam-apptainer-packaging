@@ -24,10 +24,11 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 %files
     OMPIFoam /opt/OMPIFoam
 
-%post
+%post -c /bin/bash
     echo "Testing OpenMPI implementation"
-    /bin/bash -c "cd /opt/OMPIFoam && mpicc -o ompiTest testOMPI.cpp"
-    /bin/bash -c "source /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc && cd /opt/OMPIFoam && wmake"
+    source /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc
+    export LD_LIBRARY_PATH=/opt/{{ MPI_IMPLEMENTATION }}/lib:$LD_LIBRARY_PATH
+    cd /opt/OMPIFoam && mpicc -o ompiTest testOMPI.cpp && wmake
     jq --arg app test --arg branch {{ BRANCH }} \
         '.[$app] |= if . == null then
         {
