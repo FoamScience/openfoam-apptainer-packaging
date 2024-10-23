@@ -44,5 +44,13 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 
+%runscript
+    /bin/bash -c 'cd /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
+    if [ $# -eq 0 ]; then
+        /usr/bin/openfoam{{ FRAMEWORK_VERSION }}
+    else
+        /usr/bin/openfoam{{ FRAMEWORK_VERSION }} $@
+    fi
+
 %labels
     Description Test applications for ESI OpenFOAM
