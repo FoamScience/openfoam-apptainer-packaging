@@ -2,7 +2,7 @@
 > We take OpenFOAM as an example here, but containers for any other HPC software
 > package can be built in the same way.
 
-## Build apptainer containers for OpenFOAM 
+## Build Apptainer containers for OpenFOAM 
 
 You only need to:
 
@@ -36,6 +36,33 @@ You will then find the resulting container at `containers/basic/opencfd-openfoam
 will try to pull some base containers from a registry, and build them only if the pull is
 unsuccessful. Pull-related behaviour can be configured in a `pull` section
 (again, refer to [config.yaml](config.yaml) for an example).
+
+### Layered base containers
+
+The `containers.basic.framework` keyword can be a mapping as shown above, in which case,
+a single base framework is expected to be on the container, and can also be a list of frameworks:
+```yaml
+containers:
+  basic:
+    openfoam-hpctoolkit: 
+      os:
+        distro: ubuntu 
+        version: 24.04 
+      mpi:
+        implementation: openmpi 
+        version: 4.1.5 
+      framework:
+        - definition: com-openfoam 
+          version: 2312 
+        - definition: hpctoolkit
+          version: 2024.01.99-next 
+```
+
+If a list of frameworks is provided, all will be installed on the container, in order,
+by creating intermediary images off of the previous ones, starting from the MPI container.
+
+All base images source `bashrc` files in `%environment` section automatically from all
+software showing up in `/apps.json` and having a `source_script` entry.
 
 ## Build containers for your OpenFOAM-based projects
 
