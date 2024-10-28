@@ -10,7 +10,7 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: localimage
-From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{{ MPI_VERSION }}.sif
+From: containers/basic/{{ BASE_CONTAINER }}.sif
 
 %arguments
     OS_DISTRO=ubuntu
@@ -20,10 +20,21 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
     FRAMEWORK_VERSION=2312
     FRAMEWORK_GIT_REF=default
 
-%post
-    curl https://dl.openfoam.com/add-debian-repo.sh | bash
+%post -c /bin/bash
     DEBIAN_FRONTEND=noninteractive
-    apt-get -y install --no-install-recommends openfoam{{ FRAMEWORK_VERSION }}-dev python3
+    if [[ {{ FRAMEWORK_GIT_REF }} == "default" ]]; then
+        curl https://dl.openfoam.com/add-debian-repo.sh | bash
+        apt-get -y install --no-install-recommends openfoam{{ FRAMEWORK_VERSION }}-dev python3
+    else
+        apt-get install -y --no-install-recommends \
+            flex libfl-dev libreadline-dev zlib1g-dev libgmp-dev libmpfr-dev libmpc-dev \
+            libfftw3-dev libscotch-dev libptscotch-dev libboost-system-dev libboost-thread-dev libcgal-dev
+        mkdir -p /usr/lib/openfoam
+        git clone https://develop.openfoam.com/Development/openfoam /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}
+        cd /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}
+        git checkout {{ FRAMEWORK_GIT_REF }}
+        ./Allwmake -j -s -q -l
+    fi
     jq --arg app openfoam --arg commit {{ FRAMEWORK_GIT_REF }} \
         --arg branch {{ FRAMEWORK_GIT_REF }} \
         '.[$app] |= if . == null then
@@ -31,6 +42,7 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
             fork: "com-openfoam",
             branch: $branch,
             commit: $commit,
+            source_script: "/usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         }
         else . +
@@ -38,18 +50,33 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
             fork: "com-openfoam",
             branch: $branch,
             commit: $commit,
+            source_script: "/usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 
+%environment
+    #!/bin/bash
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
+
 %runscript
-    /bin/bash -c 'cd /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
+    #!/bin/bash
     if [ $# -eq 0 ]; then
-        /usr/bin/openfoam{{ FRAMEWORK_VERSION }}
+        /bin/bash
     else
-        /usr/bin/openfoam{{ FRAMEWORK_VERSION }} $@
+        /bin/bash -c "$@"
     fi
 
 %labels
     Maintainer Mohammed Elwardi Fadeli
     Description Ubuntu-based ESI OpenFOAM image with OpenMPI
+    AppsFile /apps.json

@@ -10,7 +10,7 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: localimage
-From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{{ MPI_VERSION }}.sif
+From: containers/basic/{{ BASE_CONTAINER }}.sif
 
 %arguments
     OS_DISTRO=ubuntu
@@ -33,6 +33,8 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
     cmake --build .
     make install PREFIX=/usr/local
     curl -o /etc/apt/trusted.gpg.d/openfoam.asc https://dl.openfoam.org/gpg.key
+    echo "export PATH=/usr/local/bin:${PATH}" > /opt/lammps/bashrc
+    echo "export LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}" >> /opt/lammps/bashrc
     jq --arg app lammps --arg commit $commit \
         --arg release {{ FRAMEWORK_GIT_REF }} \
         '.[$app] |= if . == null then
@@ -40,6 +42,7 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
             fork: "lammps",
             release: $release,
             commit: $commit,
+            source_script: "/opt/lammps/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         }
         else . +
@@ -47,17 +50,28 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
             fork: "lammps",
             release: $release,
             commit: $commit,
+            source_script: "/opt/lammps/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 
 %environment
-    export PATH="/usr/local/bin:${PATH}"
-    export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
+    #!/bin/bash
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
 
 %runscript
+    #!/bin/bash
     if [ $# -eq 0 ]; then
-        /bin/bash -c "/bin/bash --login"
+        /bin/bash
     else
         /bin/bash -c "$@"
     fi

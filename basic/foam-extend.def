@@ -10,7 +10,7 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: localimage
-From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{ MPI_IMPLEMENTATION }}-{{ MPI_VERSION }}.sif
+From: containers/basic/{{ BASE_CONTAINER }}.sif
 
 %arguments
     OS_DISTRO=ubuntu
@@ -20,7 +20,7 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{ MPI_IMPLEMENTATION }}
     FRAMEWORK_VERSION=5.0
     FRAMEWORK_GIT_REF=master
 
-%post
+%post -c /bin/bash
     DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get -y install --no-install-recommends \
@@ -43,6 +43,7 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{ MPI_IMPLEMENTATION }}
             fork: "foam-extend",
             branch: $branch,
             commit: $commit,
+            source_script: "/opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         }
         else . +
@@ -50,16 +51,30 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{ MPI_IMPLEMENTATION }}
             fork: "foam-extend",
             branch: $branch,
             commit: $commit,
+            source_script: "/opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 
+%environment
+    #!/bin/bash
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
+
 %runscript
-    /bin/bash -c 'cd /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
+    #!/bin/bash
     if [ $# -eq 0 ]; then
-        /bin/bash -c "source /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc && /bin/bash --login"
+        /bin/bash
     else
-        /bin/bash -c "source /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc && $@"
+        /bin/bash -c "$@"
     fi
 
 %labels

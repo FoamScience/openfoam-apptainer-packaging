@@ -10,7 +10,7 @@
 #
 # ---------------------------------------------------------------------------
 Bootstrap: localimage
-From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{{ MPI_VERSION }}.sif
+From: containers/basic/{{ BASE_CONTAINER }}.sif
 
 %arguments
     OS_DISTRO=ubuntu
@@ -20,7 +20,7 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
     FRAMEWORK_VERSION=11
     FRAMEWORK_GIT_REF=default
 
-%post
+%post -c /bin/bash
     curl -o /etc/apt/trusted.gpg.d/openfoam.asc https://dl.openfoam.org/gpg.key
     DEBIAN_FRONTEND=noninteractive
     apt-get update
@@ -36,6 +36,7 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
             fork: "org-openfoam",
             branch: $branch,
             commit: $commit,
+            source_script: "/opt/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         }
         else . +
@@ -43,10 +44,12 @@ From: containers/basic/{{ OS_DISTRO }}-{{ OS_VERSION }}-{{MPI_IMPLEMENTATION}}-{
             fork: "org-openfoam",
             branch: $branch,
             commit: $commit,
+            source_script: "/opt/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc",
             version: "{{ FRAMEWORK_VERSION }}"
         } end' /apps.json > /tmp/apps.json
 
 %runscript
+    #!/bin/bash
     /bin/bash -c 'cd /opt/openfoam{{ FRAMEWORK_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
     if [ $# -eq 0 ]; then
         /bin/bash -c "source /opt/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc && /bin/bash --login"
