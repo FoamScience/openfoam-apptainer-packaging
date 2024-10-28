@@ -18,8 +18,9 @@ containers:
       framework:
         definition: com-openfoam # org-openfoam, and foam-extend also supported, see basic/ for more
         version: 2312 # specific version number for the target fork
-    # you get foam-extend.sif from the following entry
-    #foam-extend:
+        git_ref: default  # will cause installation from binary packages (specific to com-openfoam)
+    # you get openfoam-hpctoolkit.sif from the following entry which has both hpctoolkit and OpenFOAM:
+    #openfoam-hpctoolkit:
     #  os:
     #    distro: ubuntu
     #    version: 24.04
@@ -27,9 +28,23 @@ containers:
     #    implementation: openmpi
     #    version: 4.1.5
     #  framework:
-    #    definition: foam-extend
-    #    version: 5.0
-    #    git_ref: master # optional (default: default)
+    #    - definition: com-openfoam # org-openfoam, and foam-extend also supported, see basic/ for more
+    #      version: 2312
+    #      git_ref: default
+    #    - definition: hpctoolkit
+    #      version: 2024.01.99-next
+    # you get foam-extend.sif from the following entry
+    #    foam-extend:
+    #      os:
+    #        distro: ubuntu
+    #        version: 24.04
+    #      mpi:
+    #        implementation: openmpi
+    #        version: 4.1.5
+    #      framework:
+    #        definition: foam-extend
+    #        version: 5.0
+    #        git_ref: master # optional (default: default)
   # This section builds final containers in containers/projects
   projects:
     # you get test-master.sif and test-dev.sif from the following entry
