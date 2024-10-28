@@ -65,7 +65,7 @@
         if [ ! -f {{ original_dir }}/containers/basic/{{ item.os.distro }}-{{ item.os.version }}-{{ item.mpi.implementation }}-{{ item.mpi.version }}.sif ]; then
           apptainer build \
             --warn-unused-build-args \
-            --build-arg OS_DISTRO={{ item.os.distro }} \
+            --build-arg OS_DISTRO={{ distro }} \
             --build-arg OS_VERSION={{ item.os.version }} \
             --build-arg MPI_IMPLEMENTATION={{ item.mpi.implementation }} \
             --build-arg MPI_VERSION={{ item.mpi.version }} \
@@ -88,24 +88,61 @@
       loop: "{{ containers.basic.items() }}"
       ignore_errors: yes
       when: pull.try_to_pull
+    - name: Build layered base containers if corresponding .sif files don't exist
+      vars:
+        distro: "{{ item.0.value.os.distro | regex_replace('_', '/') }}"
+      shell: |
+        if [ -f {{ original_dir }}/containers/basic/{{ item.0.key }}.sif ] && [ {{ framework_index }} -eq 0 ]; then
+          echo "Container {{ original_dir }}/containers/basic/{{ item.0.key }}.sif already exists. Skipping build."
+          exit 0
+        else
+          cd {{ original_dir }}
+          start_container={{ distro }}-{{ item.0.value.os.version }}-{{ item.0.value.mpi.implementation }}-{{ item.0.value.mpi.version }}
+          if [ {{ framework_index }} -eq 0 ]; then
+            cp {{ original_dir }}/containers/basic/${start_container}.sif {{ original_dir }}/containers/basic/{{ item.0.key }}.sif
+          else
+            start_container={{ item.0.key }}
+          fi
+          apptainer build --force \
+                --warn-unused-build-args \
+                --build-arg OS_DISTRO={{ distro }} \
+                --build-arg OS_VERSION={{ item.0.value.os.version }} \
+                --build-arg MPI_IMPLEMENTATION={{ item.0.value.mpi.implementation }} \
+                --build-arg MPI_VERSION={{ item.0.value.mpi.version }} \
+                --build-arg FRAMEWORK_VERSION={{ item.1.version }} \
+                --build-arg FRAMEWORK_GIT_REF={{ item.1.git_ref | default('default') }} \
+                --build-arg BASE_CONTAINER=${start_container} \
+                {{ original_dir }}/containers/basic/{{ item.0.key }}.sif \
+                {{ playbook_dir }}/basic/{{ item.1.definition }}.def \
+                >> {{ item.0.key }}.log 2>&1
+        fi
+      when: not item.0.framework is mapping
+      loop: "{{ containers.basic | dict2items | selectattr('value.framework', 'defined') | rejectattr('value.framework', 'mapping') | subelements('value.framework') }}"
+      loop_control:
+        loop_var: item
+        index_var: framework_index
     - name: Build base containers if corresponding .sif files don't exist
+      vars:
+        distro: "{{ item.1.os.distro | regex_replace('_', '/') }}"
       shell: |
         if [ ! -f {{ original_dir }}/containers/basic/{{ item.0 }}.sif ]; then
           cd {{ original_dir }}
           apptainer build --force \
                 --warn-unused-build-args \
-                --build-arg OS_DISTRO={{ item.1.os.distro  }} \
+                --build-arg OS_DISTRO={{ distro  }} \
                 --build-arg OS_VERSION={{ item.1.os.version }} \
                 --build-arg MPI_IMPLEMENTATION={{ item.1.mpi.implementation }} \
                 --build-arg MPI_VERSION={{ item.1.mpi.version }} \
                 --build-arg FRAMEWORK_VERSION={{ item.1.framework.version }} \
                 --build-arg FRAMEWORK_GIT_REF={{ item.1.framework.git_ref | default('default') }} \
+                --build-arg BASE_CONTAINER={{ distro }}-{{ item.1.os.version }}-{{ item.1.mpi.implementation }}-{{ item.1.mpi.version }} \
                 {{ original_dir }}/containers/basic/{{ item.0 }}.sif \
                 {{ playbook_dir }}/basic/{{ item.1.framework.definition }}.def \
                 > {{ item.0 }}.log 2>&1
         else
           echo "Container {{ original_dir }}/containers/basic/{{ item.1.framework.definition }}.sif already exists. Skipping build."
         fi
+      when: item.1.framework is mapping
       loop: "{{ containers.basic.items() }}"
 
 - name: Project containers
