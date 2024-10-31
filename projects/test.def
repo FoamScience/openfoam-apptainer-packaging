@@ -26,7 +26,7 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 
 %post -c /bin/bash
     echo "Testing OpenMPI implementation"
-    source /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc
+    source $(jq -r '.openfoam.source_script' /apps.json)
     export LD_LIBRARY_PATH=/opt/{{ MPI_IMPLEMENTATION }}/lib:$LD_LIBRARY_PATH
     cd /opt/OMPIFoam && mpicc -o ompiTest testOMPI.cpp && wmake
     jq --arg app test --arg branch {{ BRANCH }} \
@@ -44,12 +44,25 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 
+%environment
+    #!/bin/bash
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
+
 %runscript
-    /bin/bash -c 'cd /usr/lib/openfoam/openfoam{{ FRAMEWORK_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
+    #!/bin/bash
     if [ $# -eq 0 ]; then
-        /usr/bin/openfoam{{ FRAMEWORK_VERSION }}
+        /bin/bash
     else
-        /usr/bin/openfoam{{ FRAMEWORK_VERSION }} $@
+        /bin/bash -c "$@"
     fi
 
 %labels

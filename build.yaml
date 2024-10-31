@@ -178,8 +178,6 @@
                 --build-arg BASE_CONTAINER={{ item.base_container }} \
                 --build-arg OS_VERSION={{ containers.basic[item.base_container].os.version }} \
                 --build-arg MPI_VERSION={{ containers.basic[item.base_container].mpi.version }} \
-                --build-arg FRAMEWORK_VERSION={{ containers.basic[item.base_container].framework.version }} \
-                --build-arg FRAMEWORK_GIT_REF={{ containers.basic[item.base_container].framework.git_ref | default('default') }} \
                 {{ original_dir }}/containers/projects/{{ item.name }}.sif \
                 {{ original_dir }}/{{ item.definition }} \
                 > {{ item.name }}.log 2>&1

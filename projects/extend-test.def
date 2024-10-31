@@ -23,8 +23,9 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 
 %post
     echo "Testing OpenMPI implementation"
-    /bin/bash -c "cd /opt/OMPIFoam && mpicc -o ompiTest testOMPI.cpp"
-    /bin/bash -c "source /opt/foam/foam-extend-{{ OPENFOAM_VERSION }}/etc/bashrc && cd /opt/OMPIFoam && wmake"
+    source $(jq -r '.openfoam.source_script' /apps.json)
+    cd /opt/OMPIFoam && mpicc -o ompiTest testOMPI.cpp
+    cd /opt/OMPIFoam && wmake
     jq --arg app extend-test \
         '.[$app] |= if . == null then
         {
@@ -37,6 +38,27 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
             foam_test_bin: "/opt/OMPIFoam/testOMPIFoam"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
+
+%environment
+    #!/bin/bash
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
+
+%runscript
+    #!/bin/bash
+    if [ $# -eq 0 ]; then
+        /bin/bash
+    else
+        /bin/bash -c "$@"
+    fi
 
 %labels
     Description Test applications for Foam-Extend
