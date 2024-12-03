@@ -2,6 +2,7 @@
 - name: Determine if the extra_basics path is a URL
   set_fact:
     is_basics_url: "{{ containers.extra_basics | regex_search('^(http|https|git|ssh)://') is not none }}"
+    source_path: "{{ containers.extra_basics }}"
 - name: Clone git repository if extras is a URL
   git:
     repo: "{{ source_path }}"
