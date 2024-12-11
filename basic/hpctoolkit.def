@@ -86,8 +86,8 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
     meson compile -C build
     meson install -C build
     echo "export JAVA_HOME=${JAVA_HOME}" > /opt/hpctoolkit/bashrc
-    echo "export PATH=${PATH}:${JAVA_HOME}/bin:/opt/hpcviewer" >> /opt/hpctoolkit/bashrc
-    echo "export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib64" >> /opt/hpctoolkit/bashrc
+    echo 'export PATH=${PATH}:${JAVA_HOME}/bin:/opt/hpcviewer' >> /opt/hpctoolkit/bashrc
+    echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib64' >> /opt/hpctoolkit/bashrc
     jq --arg app hpctoolkit --arg commit {{ FRAMEWORK_GIT_REF }} \
         --arg branch {{ FRAMEWORK_GIT_REF }} \
         '.[$app] |= if . == null then
