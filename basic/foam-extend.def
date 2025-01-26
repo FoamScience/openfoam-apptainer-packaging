@@ -31,19 +31,23 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
     git clone --single-branch --branch {{ FRAMEWORK_GIT_REF }} --depth 1 \
         git://git.code.sf.net/p/foam-extend/foam-extend-{{ FRAMEWORK_VERSION }} \
         /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}
-    sed -i 's|^foamInstall.*|foamInstall=/opt/foam|' /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc
+    export FOAM_BASHRC="/opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc"
+    sed -i '/_foamSource.*aliases.sh/d' $FOAM_BASHRC
+    sed -i '/while \[ \$# -gt 0 \]/,/^done$/d' $FOAM_BASHRC
+    sed -i 's|^foamInstall.*|foamInstall=/opt/foam|' $FOAM_BASHRC
     nProcs=$(nproc)
     /bin/bash -c "cd /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }} && source etc/bashrc && ./Allwmake.firstInstall -j $nProcs"
     rm -rf /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/tutorials/*
     FRAMEWORK_COMMIT_HASH=$(git -C /opt/foam/foam-extend-{{ FRAMEWORK_VERSION }} rev-parse HEAD)
     jq --arg app openfoam --arg commit $FRAMEWORK_COMMIT_HASH \
         --arg branch {{ FRAMEWORK_GIT_REF }} \
+        --arg source_script $FOAM_BASHRC \
         '.[$app] |= if . == null then
         {
             fork: "foam-extend",
             branch: $branch,
             commit: $commit,
-            source_script: "/opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc",
+            source_script: $source_script,
             version: "{{ FRAMEWORK_VERSION }}"
         }
         else . +
@@ -51,7 +55,7 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
             fork: "foam-extend",
             branch: $branch,
             commit: $commit,
-            source_script: "/opt/foam/foam-extend-{{ FRAMEWORK_VERSION }}/etc/bashrc",
+            source_script: $source_script,
             version: "{{ FRAMEWORK_VERSION }}"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
@@ -60,12 +64,12 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
     #!/bin/bash
     jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
       if [[ -f "$script" ]]; then
-        source "$script"
+          source "$script"
       fi
     done
     jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
       if [[ -f "$script" ]]; then
-        source "$script/bin/activate"
+          source "$script/bin/activate"
       fi
     done
 
