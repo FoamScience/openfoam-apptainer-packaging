@@ -65,6 +65,11 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
         source "$script/bin/activate"
       fi
     done
+    jq -r '.. | .uv_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
 
 %runscript
     #!/bin/bash

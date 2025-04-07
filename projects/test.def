@@ -44,19 +44,6 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
 
-%environment
-    #!/bin/bash
-    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
-      if [[ -f "$script" ]]; then
-        source "$script"
-      fi
-    done
-    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
-      if [[ -d "$script" ]]; then
-        source "$script/bin/activate"
-      fi
-    done
-
 %runscript
     #!/bin/bash
     if [ $# -eq 0 ]; then
