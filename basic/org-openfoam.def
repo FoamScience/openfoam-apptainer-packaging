@@ -48,13 +48,25 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
             version: "{{ FRAMEWORK_VERSION }}"
         } end' /apps.json > /tmp/apps.json
 
+%environment
+    #!/bin/bash
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -d "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
+
 %runscript
     #!/bin/bash
-    /bin/bash -c 'cd /opt/openfoam{{ FRAMEWORK_VERSION }} && source etc/bashrc && mkdir -p $FOAM_USER_LIBBIN && mkdir -p $FOAM_USER_APPBIN'
     if [ $# -eq 0 ]; then
-        /bin/bash -c "source /opt/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc && /bin/bash --login"
+        /bin/bash
     else
-        /bin/bash -c "source /opt/openfoam{{ FRAMEWORK_VERSION }}/etc/bashrc && $@"
+        /bin/bash -c "$@"
     fi
 
 %labels
