@@ -61,8 +61,24 @@ containers:
 If a list of frameworks is provided, all will be installed on the container, in order,
 by creating intermediary images off of the previous ones, starting from the MPI container.
 
-All base images source `bashrc` files in `%environment` section automatically from all
-software showing up in `/apps.json` and having a `source_script` entry.
+As for the user environment setup, the most basic image sets up the following automatically:
+- All `source_script` (pointing to BASH scripts) entries for `apps.json` entries are sourced.
+- All virtual environments from `python_env` entries in `/apps.json` are loaded, in order.
+- If an `/apps.json` entry has a `uv_env`, the pointed-to file is sourced. Further
+  configuration of [uv](https://github.com/astral-sh/uv) is left to the user, but the following
+  is recommended in container context:
+  ```bash
+  echo "export UV_ENV_FILE=$UV_ENV_FILE" > $UV_ENV_FILE
+  echo "export UV_NO_SYNC=1" >> $UV_ENV_FILE
+  echo "export UV_COMPILE_BYTECODE=1" >> $UV_ENV_FILE
+  echo "export UV_NO_CONFIG=1" >> $UV_ENV_FILE
+  echo "export UV_FROZEN=1" >> $UV_ENV_FILE
+  echo "export UV_PROJECT_ENVIRONMENT=<path-to-project-venv>" >> $UV_ENV_FILE
+  echo "export UV_PROJECT=<path-to-project>" >> $UV_ENV_FILE
+  ```
+  As a special `uv` case, you need to redirect `UV_CACHE_DIR` to a non-mounted path
+  on the container (eg `/opt/uv_cache`), and after you're done installing stuff,
+  remove that folder to keep containers small in size.
 
 ## Build containers for your OpenFOAM-based projects
 
