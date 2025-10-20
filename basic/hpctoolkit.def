@@ -21,6 +21,7 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
     FRAMEWORK_GIT_REF=default
 
 %post -c /bin/bash
+    DEBIAN_FRONTEND=noninteractive apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         openjdk-21-jdk openjdk-21-jre \
         ccache cmake \
@@ -95,6 +96,7 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
             branch: $branch,
             commit: $commit,
             source_script: "/opt/hpctoolkit/bashrc",
+            workflow: "hpcrun -> hpcstruct -> hpcprof -> htpcviewer",
             version: "{{ FRAMEWORK_VERSION }}"
         }
         else . +
@@ -102,6 +104,7 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
             branch: $branch,
             commit: $commit,
             source_script: "/opt/hpctoolkit/bashrc",
+            workflow: "hpcrun -> hpcstruct -> hpcprof -> htpcviewer",
             version: "{{ FRAMEWORK_VERSION }}"
         } end' /apps.json > /tmp/apps.json
     mv /tmp/apps.json /apps.json
