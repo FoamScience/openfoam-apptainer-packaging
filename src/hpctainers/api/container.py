@@ -74,6 +74,9 @@ class ContainerImpl:
         self.python_envs: List[str] = []  # List of Python venv paths
         self.uv_envs: List[str] = []  # List of UV env files
 
+        # e.g., {"github_secret": "GITHUB_TOKEN"}
+        self.env_secrets: Dict[str, str] = {}
+
     def from_(self, base_image: str) -> ContainerImpl:
         """Bootstrap container from base image.
 
@@ -160,6 +163,28 @@ class ContainerImpl:
             args={"name": name, "value": value}
         ))
         logger.debug(f"Container env: {name}={value}")
+        return self
+
+    def with_env_secret(self, local_name: str, host_var_name: str) -> ContainerImpl:
+        """Add environment secret from host environment variable.
+
+        This securely injects environment variables from the host into the
+        container build process. The variables are sourced during %post and
+        removed after use, so they don't persist in the final container.
+
+        Args:
+            local_name: Name for the variable inside the container (e.g., "github_secret")
+            host_var_name: Name of the environment variable on the host (e.g., "GITHUB_TOKEN")
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> container.with_env_secret("github_secret", "GITHUB_TOKEN")
+            # In %post, $GITHUB_TOKEN will be available
+        """
+        self.env_secrets[local_name] = host_var_name
+        logger.debug(f"Container env secret: {local_name} <- ${host_var_name}")
         return self
 
     def with_mpi(self, implementation: str, version: str) -> ContainerImpl:
@@ -469,6 +494,15 @@ class ContainerImpl:
         lines.append("%post -c /bin/bash")
         lines.append("    DEBIAN_FRONTEND=noninteractive")
 
+        if self.env_secrets:
+            env_file_path = f"/tmp/hpctainers_build_env_{self.name}.sh"
+            lines.append("")
+            lines.append("    # Source environment secrets (injected securely at build time)")
+            lines.append(f"    if [ -f \"{env_file_path}\" ]; then")
+            lines.append(f"        source \"{env_file_path}\"")
+            lines.append(f"        rm -f \"{env_file_path}\"")
+            lines.append("    fi")
+
         if self.env_vars:
             lines.append("")
             lines.append("    # Environment variables")
@@ -570,6 +604,12 @@ class ContainerImpl:
 
         for entry in metadata_entries:
             lines.append(entry)
+
+        if self.env_secrets:
+            env_file_path = f"/tmp/hpctainers_build_env_{self.name}.sh"
+            lines.append("")
+            lines.append("    # Final cleanup: Ensure environment secrets file is removed")
+            lines.append(f"    rm -f {env_file_path}")
 
         lines.append("")
 
@@ -726,7 +766,9 @@ class ContainerImpl:
                 definition_file=def_file,
                 build_args=build_args,
                 log_file=Path(f"containers/projects/{self.name}.log"),
-                force=True
+                force=True,
+                env_secrets=self.env_secrets,
+                container_name=self.name
             )
             if not success:
                 raise RuntimeError(f"Project container build failed for {self.name}")
@@ -749,6 +791,7 @@ class ContainerImpl:
                 base_image=self.base_image,
                 post_commands=self.post_commands,
                 env_vars=self.env_vars,
+                env_secrets=self.env_secrets,
                 output=output
             )
 

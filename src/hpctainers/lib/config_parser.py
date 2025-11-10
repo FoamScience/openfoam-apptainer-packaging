@@ -92,6 +92,54 @@ class ProjectContainerConfig(BaseModel):
     definition: str
     build_args: Optional[Dict[str, List[str]]] = Field(default_factory=dict)
 
+    def get_env_secrets(self) -> Dict[str, str]:
+        """Extract environment secrets from build_args.
+
+        Environment secrets are build_args with keys starting with 'env_' or 'ENV_'.
+        The key becomes the local name (with prefix removed), and the value is the
+        host environment variable name.
+
+        Example:
+            build_args:
+                env_github_secret: GITHUB_TOKEN
+                ENV_API_KEY: MY_API_KEY
+
+            Returns: {"github_secret": "GITHUB_TOKEN", "API_KEY": "MY_API_KEY"}
+
+        Returns:
+            Dictionary mapping local names to host environment variable names
+        """
+        env_secrets = {}
+        if not self.build_args:
+            return env_secrets
+
+        for key, value in self.build_args.items():
+            if key.startswith(('env_', 'ENV_')):
+                local_name = key[4:]  # Remove 'env_' or 'ENV_'
+                if isinstance(value, list):
+                    if len(value) == 1:
+                        host_var_name = value[0]
+                    else:
+                        host_var_name = value[0]
+                else:
+                    host_var_name = str(value)
+                env_secrets[local_name] = host_var_name
+        return env_secrets
+
+    def get_regular_build_args(self) -> Dict[str, List[str]]:
+        """Get build_args excluding environment secrets.
+
+        Returns:
+            Dictionary of regular build arguments
+        """
+        if not self.build_args:
+            return {}
+
+        return {
+            k: v for k, v in self.build_args.items()
+            if not k.startswith(('env_', 'ENV_'))
+        }
+
 
 class PullConfig(BaseModel):
     """Container registry pull configuration."""

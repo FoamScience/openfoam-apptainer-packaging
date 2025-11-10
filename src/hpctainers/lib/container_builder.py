@@ -109,7 +109,9 @@ class ContainerBuilder:
         definition_file: Path,
         build_args: Dict[str, str],
         log_file: Optional[Path] = None,
-        force: bool = False
+        force: bool = False,
+        env_secrets: Optional[Dict[str, str]] = None,
+        container_name: Optional[str] = None
     ) -> bool:
         """Run apptainer build command.
 
@@ -119,6 +121,8 @@ class ContainerBuilder:
             build_args: Dictionary of build arguments
             log_file: Optional path to log file
             force: Whether to force rebuild
+            env_secrets: Optional dictionary of environment secrets (local_name -> host_var_name)
+            container_name: Optional container name for container-specific temp files
 
         Returns:
             True if build succeeded
@@ -126,22 +130,55 @@ class ContainerBuilder:
         Raises:
             BuildError: If build fails
         """
-        cmd = ["apptainer", "build"]
+        import tempfile
+        import os
 
-        if force:
-            cmd.append("--force")
+        temp_env_file = None
+        if env_secrets:
+            try:
+                fd, temp_env_file = tempfile.mkstemp(suffix='.sh', prefix='hpctainers_env_')
+                with os.fdopen(fd, 'w') as f:
+                    f.write("#!/bin/bash\n")
+                    f.write("# Environment secrets for container build\n")
+                    f.write("# This file is automatically removed after build\n\n")
 
-        cmd.append("--warn-unused-build-args")
+                    for local_name, host_var_name in env_secrets.items():
+                        host_value = os.environ.get(host_var_name, '')
+                        if not host_value:
+                            logger.warning(f"Environment variable {host_var_name} not found in host environment")
+                        f.write(f"export {host_var_name}=\"{host_value}\"\n")
 
-        for key, value in sorted(build_args.items()):
-            cmd.extend(["--build-arg", f"{key}={value}"])
+                logger.debug(f"Created temp env file: {temp_env_file}")
 
-        cmd.append(str(output_file))
-        cmd.append(str(definition_file))
-
-        logger.debug(f"Running: {' '.join(cmd)}")
+            except Exception as e:
+                logger.error(f"Failed to create temp env file: {e}")
+                if temp_env_file and os.path.exists(temp_env_file):
+                    os.unlink(temp_env_file)
+                raise BuildError(f"Failed to create environment secrets file: {e}") from e
 
         try:
+            cmd = ["apptainer", "build"]
+
+            if force:
+                cmd.append("--force")
+
+            cmd.append("--warn-unused-build-args")
+
+            if temp_env_file:
+                if container_name:
+                    target_path = f"/tmp/hpctainers_build_env_{container_name}.sh"
+                else:
+                    target_path = "/tmp/hpctainers_build_env.sh"
+                cmd.extend(["--bind", f"{temp_env_file}:{target_path}"])
+
+            for key, value in sorted(build_args.items()):
+                cmd.extend(["--build-arg", f"{key}={value}"])
+
+            cmd.append(str(output_file))
+            cmd.append(str(definition_file))
+
+            logger.debug(f"Running: {' '.join(cmd)}")
+
             if log_file:
                 with open(log_file, 'w') as log_f:
                     result = subprocess.run(
@@ -174,6 +211,14 @@ class ContainerBuilder:
         except Exception as e:
             logger.exception(f"Error running apptainer build: {e}")
             raise BuildError(f"Build command failed: {e}") from e
+
+        finally:
+            if temp_env_file and os.path.exists(temp_env_file):
+                try:
+                    os.unlink(temp_env_file)
+                    logger.debug(f"Removed temp env file: {temp_env_file}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove temp env file {temp_env_file}: {e}")
 
     def build_mpi_container(
         self,
@@ -406,7 +451,8 @@ class ContainerBuilder:
         definition_file: Path,
         build_args: Dict[str, str],
         os_version: str = "",
-        mpi_version: str = ""
+        mpi_version: str = "",
+        env_secrets: Optional[Dict[str, str]] = None
     ) -> bool:
         """Build project container.
 
@@ -417,6 +463,7 @@ class ContainerBuilder:
             build_args: Build arguments (already includes variant-specific args)
             os_version: OS version (for build args)
             mpi_version: MPI version (for build args)
+            env_secrets: Optional environment secrets (local_name -> host_var_name)
 
         Returns:
             True if build succeeded
@@ -471,7 +518,9 @@ class ContainerBuilder:
             definition_file,
             all_build_args,
             log_file,
-            force=True  # Always force for project builds
+            force=True,  # Always force for project builds
+            env_secrets=env_secrets,
+            container_name=project_name
         )
 
         if success and self.cache:

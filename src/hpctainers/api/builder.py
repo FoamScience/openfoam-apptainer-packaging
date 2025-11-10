@@ -6,7 +6,6 @@ Integrates the fluent API with BuildCache and ContainerBuilder.
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -84,6 +83,7 @@ class APIBuilder:
         base_image: str,
         post_commands: list[list[str]],
         env_vars: dict[str, str],
+        env_secrets: dict[str, str],
         output: Path
     ) -> Path:
         """Build simple container from base image with commands.
@@ -93,6 +93,7 @@ class APIBuilder:
             base_image: Base Docker image
             post_commands: Commands to run in %post
             env_vars: Environment variables
+            env_secrets: Environment secrets (local_name -> host_var_name)
             output: Output path
 
         Returns:
@@ -104,15 +105,36 @@ class APIBuilder:
             "",
         ]
 
-        if env_vars or post_commands:
+        if env_secrets or env_vars or post_commands:
             lines.append("%post")
-            for name, value in env_vars.items():
-                lines.append(f"    export {name}={value}")
+            lines.append("    DEBIAN_FRONTEND=noninteractive")
+
+            if env_secrets:
+                env_file_path = f"/tmp/hpctainers_build_env_{container_name}.sh"
+                lines.append("")
+                lines.append("    # Source environment secrets (injected securely at build time)")
+                lines.append(f"    if [ -f \"{env_file_path}\" ]; then")
+                lines.append(f"        source \"{env_file_path}\"")
+                lines.append(f"        rm -f \"{env_file_path}\"")
+                lines.append("    fi")
+
             if env_vars:
                 lines.append("")
-            for cmd in post_commands:
-                cmd_str = ' '.join(cmd) if isinstance(cmd, list) else cmd
-                lines.append(f"    {cmd_str}")
+                for name, value in env_vars.items():
+                    lines.append(f"    export {name}={value}")
+
+            if post_commands:
+                lines.append("")
+                for cmd in post_commands:
+                    cmd_str = ' '.join(cmd) if isinstance(cmd, list) else cmd
+                    lines.append(f"    {cmd_str}")
+
+            if env_secrets:
+                env_file_path = f"/tmp/hpctainers_build_env_{container_name}.sh"
+                lines.append("")
+                lines.append("    # Final cleanup: Ensure environment secrets file is removed")
+                lines.append(f"    rm -f {env_file_path}")
+
             lines.append("")
 
         definition_content = '\n'.join(lines)
@@ -126,7 +148,9 @@ class APIBuilder:
             definition_file=def_file,
             build_args={},
             log_file=self.containers_dir / f"{container_name}.log",
-            force=True
+            force=True,
+            env_secrets=env_secrets,
+            container_name=container_name
         )
 
         if not success:
