@@ -45,6 +45,11 @@ jobs:
         run: |
           sed -i 's/try_to_pull:.*/try_to_pull: false/g' config.yaml
 
+      - name: Run unit tests
+        run: |
+          uv sync
+          uv run pytest tests
+
       - name: Build containers
         run: |
           uv sync

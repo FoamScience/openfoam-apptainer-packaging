@@ -712,7 +712,7 @@ def main() -> int:
 
     setup_logging(args.verbose, args.quiet)
     logger.info("=" * 60)
-    logger.info("Container Build System (Python)")
+    logger.info("Container Build Mechanism")
     logger.info("=" * 60)
 
     if not check_apptainer_version():
@@ -887,11 +887,14 @@ def main() -> int:
                 variant = node.metadata["variant"]
                 project_config = node.metadata["project_config"]
                 definition_file = original_dir / project_config.definition
-                build_func = lambda name=container_name, node=node, variant=variant, def_file=definition_file: builder.build_project_container(
+                # Extract environment secrets from project config
+                env_secrets = project_config.get_env_secrets() if hasattr(project_config, 'get_env_secrets') else {}
+                build_func = lambda name=container_name, node=node, variant=variant, def_file=definition_file, secrets=env_secrets: builder.build_project_container(
                     name,
                     node.depends_on[0],
                     def_file,
-                    variant.args
+                    variant.args,
+                    env_secrets=secrets
                 )
 
             tasks.append(BuildTask(

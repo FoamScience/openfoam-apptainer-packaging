@@ -49,7 +49,7 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
     if [ $# -eq 0 ]; then
         /bin/bash
     else
-        /bin/bash -c "$@"
+        eval "$@"
     fi
 
 %labels

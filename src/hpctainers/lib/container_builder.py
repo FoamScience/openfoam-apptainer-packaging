@@ -471,10 +471,13 @@ class ContainerBuilder:
         output_file = self.projects_output_dir / f"{project_name}.sif"
         log_file = self.containers_dir / f"{project_name}.log"
 
+        # Uppercase build arg keys to match Apptainer template variables
+        uppercased_build_args = {k.upper(): v for k, v in build_args.items()}
+
         all_build_args = {
             "BASE_CONTAINER": base_container_name,
             "CONTAINERS_DIR": str(self.containers_dir.absolute()),
-            **build_args  # Includes variant-specific args (BRANCH, etc.)
+            **uppercased_build_args  # Includes variant-specific args (BRANCH, etc.)
         }
 
         if os_version:

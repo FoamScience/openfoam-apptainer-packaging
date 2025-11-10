@@ -121,7 +121,8 @@ class BuildMatrix:
         all_variants = {}
 
         for project_name, config in projects.items():
-            build_args = config.build_args or {}
+            # Only use regular build args (exclude env_ prefixed secrets)
+            build_args = config.get_regular_build_args() if hasattr(config, 'get_regular_build_args') else (config.build_args or {})
             variants = BuildMatrix.generate_variants(project_name, build_args)
             all_variants[project_name] = variants
 
