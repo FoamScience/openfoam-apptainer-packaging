@@ -2,17 +2,50 @@
 > We take OpenFOAM as an example here, but containers for any other HPC software
 > package can be built in the same way.
 
-## Build Apptainer containers for OpenFOAM 
+<!-- mtoc-start:0f841ef -->
+
+* [Build Apptainer containers for OpenFOAM](#build-apptainer-containers-for-openfoam)
+  * [Layered base containers](#layered-base-containers)
+* [Build containers for your OpenFOAM-based projects](#build-containers-for-your-openfoam-based-projects)
+* [Best practices for container usage](#best-practices-for-container-usage)
+  * [OpenMPI support](#openmpi-support)
+  * [Using project containers](#using-project-containers)
+* [Container debugging](#container-debugging)
+* [Load your own base containers](#load-your-own-base-containers)
+* [Container Testing](#container-testing)
+* [MPI Testing](#mpi-testing)
+* [Security Scanning](#security-scanning)
+* [Size Analysis](#size-analysis)
+* [Report Generation](#report-generation)
+  * [Report Structure](#report-structure)
+* [Configuration Reference](#configuration-reference)
+  * [Basic Containers](#basic-containers)
+  * [Project Containers](#project-containers)
+  * [Extra Basics](#extra-basics)
+  * [Pull Configuration](#pull-configuration)
+  * [Build Options](#build-options)
+  * [Security Policy](#security-policy)
+  * [Testing Configuration](#testing-configuration)
+  * [Complete Configuration Example](#complete-configuration-example)
+
+<!-- mtoc-end:0f841ef -->
+
+## Build Apptainer containers for OpenFOAM
 
 You only need to:
 
-1. Supply a configuration file (look at [config.yaml](config.yaml) for an example)
-2. Run the build playbook and point to the configuration:
+1. Install hpcTainers: `uv tool install .` (or use `uvx hpctainers` to run without installing)
+2. Supply a configuration file (look at [config.yaml](config.yaml) for an example)
+3. Build the containers:
 ```bash
-git clone https://github.com/FoamScience/openfoam-apptainer-packaging /tmp/of_tainers
-ansible-playbook /tmp/of_tainers/build.yaml \
-    --extra-vars "original_dir=$PWD" \
-    --extra-vars "@/path/to/config.yaml"
+# Using installed version
+hpctainers --config config.yaml
+
+# Or without installation
+uvx hpctainers --config config.yaml
+
+# With default config.yaml in current directory
+hpctainers
 ```
 
 A configuration file for building an (OpenCFD) OpenFOAM container should look like:
@@ -32,7 +65,7 @@ containers:
 ```
 
 You will then find the resulting container at `containers/basic/opencfd-openfoam.sif`
-(relative to where you run the ansible command). Note that, by default, the build playbook
+(relative to the current working directory). Note that, by default, hpcTainers
 will try to pull some base containers from a registry, and build them only if the pull is
 unsuccessful. Pull-related behaviour can be configured in a `pull` section
 (again, refer to [config.yaml](config.yaml) for an example).
@@ -84,7 +117,7 @@ As for the user environment setup, the most basic image sets up the following au
 
 1. Add your project to the configuration file.
 2. Write a [definition file](https://apptainer.org/docs/user/main/definition_files.html) for your project.
-3. Run the build playbook.
+3. Run `hpctainers` to build the containers.
 
 To build a `test` project on top of the `opencfd-openfoam` container, supply the
 following configuration file:
@@ -104,14 +137,14 @@ containers:
   projects:
     test:
       base_container: opencfd-openfoam
-      definition: projects/test.def # This is always relative to CWD (original_dir)
+      definition: projects/test.def # This is always relative to the current working directory
       build_args:
         branch:
           - master
           #- dev
 ```
 
-The build playbook will then create `containers/projects/test-master.sif` for you.
+`hpcTainers` will then create `containers/projects/test-master.sif` for you.
 
 The `build_args` in each project's description is **optional** but can be useful
 when building different container versions of the same project. A popular use case is to
@@ -318,7 +351,7 @@ containers:
         version: 2312
 ```
 
-It's important to understand that the ansible playbook will always generate containers with MPI support
+It's important to understand that hpcTainers will always generate containers with MPI support
 as a first layer, then generate the basic framework container on top of that.
 
 > [!IMPORTANT]
@@ -326,3 +359,383 @@ as a first layer, then generate the basic framework container on top of that.
 > containers will be much larger than using distribution package managers. Also, at the time of writing,
 > `spack` doesn't allow for easy switching of the underlying distribution as random installation errors
 > arise for the same definition file if you base it on ubuntu and centos 7 images.
+
+## Container Testing
+
+```bash
+# Build containers and run tests
+uvx hpctainers --test
+
+# Run tests only (no building)
+uvx hpctainers --test-only
+```
+
+1. **Command Execution Tests**
+   - Run commands inside containers
+   - Validate exit codes and output patterns
+
+2. **File Existence Tests**
+   - Check if critical files exist
+   - Validate file paths
+
+3. **Version Check Tests**
+   - Extract and validate software versions
+   - Pattern matching on command output
+
+4. **Metadata Tests**
+   - Inspect SIF labels
+   - Validate container metadata
+
+5. **Content Tests**
+   - Check file contents
+   - Pattern matching inside files
+
+Currently, tests run basic validation (e.g., `/apps.json` existence) by default.
+For custom tests, the infrastructure is ready for configuration in `config.yaml`:
+
+```yaml
+testing:
+  enabled: false
+  fail_fast: true
+  tests:
+    - type: command
+      name: verify_hpctoolkit
+      command: "hpcrun --version"
+      expect_success: true
+      severity: error  # error, warning, or info
+
+    - type: file_exists
+      name: check_apps_json
+      path: "/apps.json"
+      severity: error
+
+    - type: version
+      name: check_openmpi
+      command: "mpirun --version"
+      expect_pattern: "4\\.1\\.5"
+```
+
+## MPI Testing
+
+```bash
+# Run MPI tests after building
+uvx hpctainers --mpi-test
+```
+
+1. **MPI Compatibility**
+   - Checks host MPI vs container MPI versions
+   - Major.minor version compatibility
+
+2. **Hybrid MPI Mode**
+   - Host MPI + container executable
+   - Tests `mpirun -n 2 apptainer run --sharens container.sif command`
+
+3. **Containerized MPI**
+   - Fully containerized MPI execution
+   - Tests `apptainer run container.sif 'mpirun -n 2 command'`
+
+## Security Scanning
+
+Install either Trivy (recommended) or Grype
+
+```bash
+# Scan containers (warning only, doesn't fail build)
+hpctainers --security-scan
+
+# Fail build on critical vulnerabilities
+hpctainers --security-scan --fail-on-critical
+
+# Use Grype instead of Trivy
+hpctainers --security-scan --security-scanner grype
+```
+
+A JSON report will then include:
+- Vulnerability summary by severity
+- Detailed CVE information
+- Package versions (installed vs fixed)
+- CVE descriptions and CVSS scores
+
+## Size Analysis
+
+```bash
+# Analyze container sizes
+hpctainers --analyze-size
+```
+
+1. **Total Container Size**
+   - Overall .sif file size
+   - Size in MB/GB
+
+2. **Component Breakdown**
+   - Size of `/opt`, `/usr`, `/var`
+   - Percentage of total size
+   - Note: `/tmp` is not analyzed as it's bind-mounted from the host by default
+
+3. **SIF Structure**
+   - Internal SIF objects and their sizes
+   - Analyzed with `apptainer sif list`
+
+4. **Package Count**
+   - Number of installed packages
+   - Supports Debian/Ubuntu (dpkg) and RHEL (rpm)
+
+## Report Generation
+
+All features generate JSON reports in the `reports/` directory (configurable with `--report-dir`):
+
+```
+reports/
+├── hpctoolkit-report.json      # Aggregate report
+├── hpctoolkit-security.json    # Security scan details
+├── hpctoolkit-size.json        # Size analysis details
+└── summary-report.json         # Multi-container summary
+```
+
+### Report Structure
+
+**Container Report** (`<container>-report.json`):
+```json
+{
+  "container_name": "hpctoolkit",
+  "container_path": "containers/basic/hpctoolkit.sif",
+  "report_generated": "2025-11-08T12:00:00",
+  "tests": { ... },
+  "security": { ... },
+  "size_analysis": { ... },
+  "mpi_tests": { ... }
+}
+```
+
+---
+
+## Configuration Reference
+
+### Basic Containers
+
+Define base HPC containers with OS, MPI, and framework layers:
+
+```yaml
+containers:
+  basic:
+    container-name:
+      os:
+        distro: ubuntu          # Base OS (ubuntu, debian, centos, etc.)
+        version: 24.04          # OS version
+      mpi:
+        implementation: openmpi # MPI implementation (openmpi, mpich, intelmpi)
+        version: 4.1.5          # MPI version
+      framework:
+        definition: com-openfoam  # Framework definition file (without .def)
+        version: 2312           # Framework version
+```
+
+**Layered Frameworks** - Install multiple frameworks in sequence:
+
+```yaml
+containers:
+  basic:
+    container-name:
+      os:
+        distro: ubuntu
+        version: 24.04
+      mpi:
+        implementation: openmpi
+        version: 4.1.5
+      framework:
+        - definition: com-openfoam
+          version: 2312
+        - definition: hpctoolkit
+          version: 2024.01.99-next
+```
+
+### Project Containers
+
+Build application containers on top of basic containers:
+
+```yaml
+containers:
+  projects:
+    project-name:
+      base_container: container-name  # Must match a basic container name
+      definition: projects/test.def   # Path to definition file (relative to CWD)
+      build_args:                     # Optional: build argument variants
+        branch:
+          - master
+          - dev
+        mode:
+          - debug
+          - optimized
+```
+
+**Build Arguments**:
+- Creates multiple container variants (e.g., `project-name-master.sif`, `project-name-dev.sif`)
+- Available as `{{ BRANCH }}`, `{{ MODE }}` (uppercase) in definition files
+- All basic container arguments also available: `{{ OS_DISTRO }}`, `{{ MPI_VERSION }}`, etc.
+
+### Extra Basics
+
+Load custom definition files from external sources:
+
+```yaml
+containers:
+  extra_basics: /path/to/definitions  # Local path
+  # OR
+  extra_basics: https://github.com/user/repo  # Git repository
+
+  basic:
+    custom-container:
+      mpi:
+        implementation: custom_mpi  # Looks for custom_mpi.def in extra_basics/basic/
+```
+
+**Requirements**:
+- Must contain a `basic/` subdirectory with `.def` files
+- Definition files follow same structure as built-in definitions
+- Can be used for both MPI and framework definitions
+
+### Pull Configuration
+
+Control container registry pulling behavior:
+
+```yaml
+pull:
+  enabled: true                    # Try pulling before building
+  registry: ghcr.io               # Container registry URL
+  namespace: foamscience          # Registry namespace/organization
+  fallback_to_build: true         # Build if pull fails
+  containers:
+    - container-name              # List of containers to pull
+    - another-container
+```
+
+**Default Behavior**:
+- Attempts to pull containers from registry first
+- Falls back to building if pull fails
+- Useful for CI/CD and reproducible builds
+
+### Build Options
+
+Global build settings:
+
+```yaml
+build:
+  parallel: true                  # Build containers in parallel (default: true)
+  max_workers: 4                  # Maximum parallel builds (default: CPU count)
+  cache_enabled: true             # Use build cache (default: true)
+  output_dir: containers          # Output directory (default: containers)
+```
+
+### Security Policy
+
+```yaml
+security:
+  enabled: false              # Disabled by default
+  scanner: trivy             # or grype
+  fail_on_critical: false    # Fail build on critical CVEs
+  fail_on_high: false        # Fail build on high CVEs
+  ignore_unfixed: true       # Ignore vulnerabilities without fixes
+  report_path: security-reports/
+```
+
+### Testing Configuration
+
+```yaml
+testing:
+  enabled: false
+  fail_fast: true            # Stop on first failure
+  timeout: 300              # Default timeout per test
+  tests:
+    - type: command
+      name: test_name
+      command: "command to run"
+      expect_success: true
+      expect_pattern: "regex"  # Optional
+      severity: error        # error, warning, info
+```
+
+### Complete Configuration Example
+
+A comprehensive configuration combining all features:
+
+```yaml
+# Container definitions
+containers:
+  # Load custom definitions from external source
+  extra_basics: https://github.com/FoamScience/spack-apptainer-containers
+
+  # Basic containers with layered frameworks
+  basic:
+    openfoam-hpctoolkit:
+      os:
+        distro: ubuntu
+        version: 24.04
+      mpi:
+        implementation: openmpi
+        version: 4.1.5
+      framework:
+        - definition: com-openfoam
+          version: 2312
+        - definition: hpctoolkit
+          version: 2024.01.99-next
+
+  # Project containers with build variants
+  projects:
+    my-app:
+      base_container: openfoam-hpctoolkit
+      definition: projects/my-app.def
+      build_args:
+        branch:
+          - master
+          - dev
+        mode:
+          - optimized
+          - debug
+
+# Pull configuration
+pull:
+  enabled: true
+  registry: ghcr.io
+  namespace: foamscience
+  fallback_to_build: true
+  containers:
+    - openfoam-hpctoolkit
+
+# Build options
+build:
+  parallel: true
+  max_workers: 4
+  cache_enabled: true
+  output_dir: containers
+
+# Security scanning
+security:
+  enabled: true
+  scanner: trivy
+  fail_on_critical: true
+  fail_on_high: false
+  ignore_unfixed: true
+  report_path: security-reports/
+
+# Container testing
+testing:
+  enabled: true
+  fail_fast: false
+  timeout: 300
+  tests:
+    - type: file_exists
+      name: check_apps_json
+      path: "/apps.json"
+      severity: error
+
+    - type: command
+      name: verify_openfoam
+      command: "which foamExec"
+      expect_success: true
+      severity: error
+
+    - type: version
+      name: check_mpi_version
+      command: "mpirun --version"
+      expect_pattern: "4\\.1\\.5"
+      severity: warning
+```
