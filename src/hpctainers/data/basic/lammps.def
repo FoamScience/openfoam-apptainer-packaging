@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+#
+# Create Ubuntu-based LAMMPS image
+#
+# Build
+#   apptainer build lpm.sif lammps.def
+#
+# Note
+#   apptainer version 1.3.1
+#
+# ---------------------------------------------------------------------------
+Bootstrap: localimage
+From: containers/basic/{{ BASE_CONTAINER }}.sif
+
+%arguments
+    OS_DISTRO=ubuntu
+    OS_VERSION=24.04
+    MPI_IMPLEMENTATION=openmpi
+    MPI_VERSION=4.1.5
+    FRAMEWORK_VERSION=patch_27Jun2024
+    FRAMEWORK_GIT_REF=patch_27Jun2024
+
+%post
+    DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get -y install --no-install-recommends cmake
+    git clone -b {{ FRAMEWORK_VERSION }} https://github.com/lammps/lammps.git /opt/lammps
+    cd /opt/lammps
+    commit=$(git rev-parse HEAD)
+    mkdir build
+    cd build
+    cmake ../cmake
+    cmake --build .
+    make install PREFIX=/usr/local
+    curl -o /etc/apt/trusted.gpg.d/openfoam.asc https://dl.openfoam.org/gpg.key
+    echo "export PATH=/usr/local/bin:${PATH}" > /opt/lammps/bashrc
+    echo "export LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}" >> /opt/lammps/bashrc
+    jq --arg app lammps --arg commit $commit \
+        --arg release {{ FRAMEWORK_GIT_REF }} \
+        '.[$app] |= if . == null then
+        {
+            fork: "lammps",
+            release: $release,
+            commit: $commit,
+            source_script: "/opt/lammps/bashrc",
+            version: "{{ FRAMEWORK_VERSION }}"
+        }
+        else . +
+        {
+            fork: "lammps",
+            release: $release,
+            commit: $commit,
+            source_script: "/opt/lammps/bashrc",
+            version: "{{ FRAMEWORK_VERSION }}"
+        } end' /apps.json > /tmp/apps.json
+    mv /tmp/apps.json /apps.json
+
+%runscript
+    #!/bin/bash
+    if [ $# -eq 0 ]; then
+        /bin/bash
+    else
+        /bin/bash -c "$@"
+    fi
+
+%labels
+    Maintainer Mohammed Elwardi Fadeli
+    Description Ubuntu-based OpenFOAM (Foundation version) image with OpenMPI

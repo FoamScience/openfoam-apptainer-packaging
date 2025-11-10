@@ -1,0 +1,85 @@
+# ---------------------------------------------------------------------------
+#
+# Create Ubuntu image with OpenMPI
+#
+# Build
+#   apptainer build ompi.sif openmpi.def
+#
+# Note
+#   apptainer version 1.3.1
+#
+# ---------------------------------------------------------------------------
+Bootstrap: docker
+From: {{ OS_DISTRO }}:{{ OS_VERSION }}
+
+%arguments
+    OS_DISTRO=ubuntu
+    OS_VERSION=24.04
+    MPI_IMPLEMENTATION=openmpi
+    MPI_VERSION=4.1.5
+
+%files
+    partials/info /usr/bin/info
+
+%post -c /bin/bash
+    DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get -y install --no-install-recommends \
+        curl gcc g++ gfortran make file jq ca-certificates bzip2 git openssh-client
+    export MPI_VERSION={{ MPI_VERSION }}
+    ompi_short=$(echo {{ MPI_VERSION }} | cut -d '.' -f1-2)
+    export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v$ompi_short/openmpi-{{ MPI_VERSION }}.tar.bz2"
+    export OMPI_DIR=/opt/ompi
+    mkdir -p $OMPI_DIR /tmp/ompi
+    cd /tmp/ompi && curl -O $OMPI_URL && tar -xjf openmpi-$MPI_VERSION.tar.bz2
+    cd /tmp/ompi/openmpi-$MPI_VERSION && ./configure --prefix=$OMPI_DIR && make -j$(nproc) install
+    export PATH=$OMPI_DIR/bin:$PATH
+    export LD_LIBRARY_PATH=$OMPI_DIR/lib:$LD_LIBRARY_PATH
+    echo "export OMPI_DIR=/tmp/ompi"  >> ${OMPI_DIR}/bashrc
+    echo "export PATH=${OMPI_DIR}/bin:${PATH}" >> ${OMPI_DIR}/bashrc
+    echo "export LD_LIBRARY_PATH=${OMPI_DIR}/lib/openmpi:${LD_LIBRARY_PATH}" >>  ${OMPI_DIR}/bashrc
+    echo "export MANPATH=${OMPI_DIR}/share/man:${MANPATH}" >> ${OMPI_DIR}/bashrc
+    echo '{}' > /apps.json
+    jq --arg app openmpi \
+        '.[$app] |= if . == null then
+        {
+            version: "{{ MPI_VERSION }}",
+            source_script: "/opt/ompi/bashrc"
+        }
+        else . +
+        {
+            version: "{{ MPI_VERSION }}",
+            source_script: "/opt/ompi/bashrc"
+        } end' /apps.json > /tmp/apps.json
+    mv /tmp/apps.json /apps.json
+
+%environment
+    #!/bin/bash
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -d "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
+    jq -r '.. | .uv_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+
+%runscript
+    #!/bin/bash
+    if [ $# -eq 0 ]; then
+        /bin/bash
+    else
+        /bin/bash -c "$@"
+    fi
+
+%labels
+    Maintainer Mohammed Elwardi Fadeli
+    Description Ubuntu-based OpenMPI image
+    AppsFile /apps.json
