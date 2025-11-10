@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hpctainers"
+version = "2.0.0"
+description = "HPC Container Build System for Apptainer with OpenFOAM, MPI, and scientific computing focus"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Mohammed Elwardi Fadeli" }
+]
+keywords = [
+    "hpc",
+    "containers",
+    "apptainer",
+    "singularity",
+    "openfoam",
+    "mpi",
+    "scientific-computing"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+]
+
+dependencies = [
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+hpctainers = "hpctainers.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hpctainers"]
+# Include package data (definition files)
+include = [
+    "src/hpctainers/data/**/*.def",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+]
+
+# System Requirements (documented for users)
+# ==============================================================================
+# Apptainer >= 1.3.1 must be installed separately
+# Installation: https://apptainer.org/docs/admin/main/installation.html
+#
+# For security scanning (optional):
+# - Trivy: https://aquasecurity.github.io/trivy/
+# - Grype: https://github.com/anchore/grype
+# ==============================================================================
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

@@ -3,3 +3,44 @@
 */linux64GccDP*/*
 .cache/
 software_versions.yaml
+
+# Python build system artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.build-cache/
+build-graph.svg
+build-graph.dot
+*.log
+
+# External definitions cache
+.cache/external_defs/
+
+# Python package build artifacts
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Reports and analysis outputs
+reports/
+security-reports/
+size-reports/
+
+# Virtual environments (if used)
+venv/
+env/
+ENV/
+.venv/
+
+# uv cache
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.python-version
