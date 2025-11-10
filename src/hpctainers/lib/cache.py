@@ -57,7 +57,7 @@ class BuildCache:
             cache_dir: Directory to store cache metadata
         """
         self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(exist_ok=True)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._cache: Dict[str, CacheEntry] = {}
         self._load_cache()
 

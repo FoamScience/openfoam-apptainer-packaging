@@ -268,17 +268,20 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
     FRAMEWORK_GIT_REF=default
 
 %post -c /bin/bash
-    # Update package manager
-    DEBIAN_FRONTEND=noninteractive apt-get update
+    DEBIAN_FRONTEND=noninteractive
 
-    # Install dependencies
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
+    # Update package manager
+    apt-get update
+
+    # Install dependencies (customize for your framework)
+    apt-get install -y --no-install-recommends \\
         build-essential \\
         cmake \\
         git \\
         wget \\
         ca-certificates \\
-        pkg-config
+        pkg-config \\
+        jq
         # Add your framework's dependencies here
 
     # Build and install your framework
@@ -290,20 +293,55 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
     # make -j$(nproc)
     # make install
 
+    # Update /apps.json with framework metadata
+    # Replace 'myframework' with your framework name
+    jq --arg app myframework --arg commit {{ FRAMEWORK_GIT_REF }} --arg branch {{ FRAMEWORK_GIT_REF }} \\
+        '.[$app] |= if . == null then
+        {
+            "version": "{{ FRAMEWORK_VERSION }}",
+            "branch": $branch,
+            "commit": $commit,
+            "source_script": "/opt/yourframework/setup.sh"
+        }
+        else . +
+        {
+            "version": "{{ FRAMEWORK_VERSION }}",
+            "branch": $branch,
+            "commit": $commit,
+            "source_script": "/opt/yourframework/setup.sh"
+        } end' /apps.json > /tmp/apps.json
+    mv /tmp/apps.json /apps.json
+
     # Clean up build dependencies (optional - saves space)
-    # DEBIAN_FRONTEND=noninteractive apt-get autoremove -y \\
-    #     build-essential \\
-    #     cmake \\
-    #     git
+    # apt-get autoremove -y build-essential cmake git
 
     # Clean apt cache
     apt-get clean
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# %environment section is optional, will inherit from parent images automatically
+%environment
+    #!/bin/bash
+    # Source scripts from /apps.json (automatic from base image)
+    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
+    # Python virtual environments
+    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
+      if [[ -d "$script" ]]; then
+        source "$script/bin/activate"
+      fi
+    done
+    # UV environment files
+    jq -r '.. | .uv_env? // empty' /apps.json | while read -r script; do
+      if [[ -f "$script" ]]; then
+        source "$script"
+      fi
+    done
 
 %runscript
-    # Default action when container is run
+    #!/bin/bash
     if [ $# -eq 0 ]; then
         /bin/bash
     else
@@ -313,7 +351,8 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
 %labels
     Author yourname@example.com
     Version {{ FRAMEWORK_VERSION }}
-    Framework YourFramework
+    Description YourFramework
+    AppsFile /apps.json
 """
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -372,11 +411,14 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
 #     ./config.yaml /etc/myapp/config.yaml
 
 %post -c /bin/bash
+    DEBIAN_FRONTEND=noninteractive
+
     # Install project-specific dependencies
-    DEBIAN_FRONTEND=noninteractive apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
+    apt-get update
+    apt-get install -y --no-install-recommends \\
         python3 \\
-        python3-pip
+        python3-pip \\
+        jq
         # Add project-specific packages
 
     # Install project code
@@ -390,17 +432,42 @@ From: {{ CONTAINERS_DIR }}/basic/{{ BASE_CONTAINER }}.sif
     # Create necessary directories
     mkdir -p /data /results
 
+    # Update /apps.json with project metadata
+    # Replace 'myproject' with your project name
+    jq --arg app myproject \\
+        '.[$app] |= if . == null then
+        {
+            "version": "{{ PROJECT_VERSION }}",
+            "path": "/opt/myproject",
+            "data_dir": "/data",
+            "results_dir": "/results"
+        }
+        else . +
+        {
+            "version": "{{ PROJECT_VERSION }}",
+            "path": "/opt/myproject",
+            "data_dir": "/data",
+            "results_dir": "/results"
+        } end' /apps.json > /tmp/apps.json
+    mv /tmp/apps.json /apps.json
+
     # Clean up
     apt-get clean
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 %runscript
-    exec "$@"
+    #!/bin/bash
+    if [ $# -eq 0 ]; then
+        /bin/bash
+    else
+        /bin/bash -c "$@"
+    fi
 
 %labels
     Author yourname@example.com
     Version {{ PROJECT_VERSION }}
-    Project YourProject
+    Description YourProject
+    AppsFile /apps.json
 """
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -470,6 +537,13 @@ def main() -> int:
         type=Path,
         metavar='PATH',
         help='Create a template project definition file and exit'
+    )
+    getting_started.add_argument(
+        '--shell', '-s',
+        nargs='?',
+        const='__REPL__',
+        metavar='COMMAND',
+        help='Run interactive shell (REPL) or execute a shell command (e.g., "container | from ubuntu")'
     )
 
     general = parser.add_argument_group('General Options')
@@ -589,6 +663,28 @@ def main() -> int:
         generate_project_template(args.create_project)
         return 0
 
+    # Handle shell mode
+    if args.shell is not None:
+        setup_logging(args.verbose, args.quiet)
+
+        from hpctainers.shell import run_repl, run_command
+
+        if args.shell == '__REPL__':
+            # Interactive REPL mode
+            logger.info("Starting interactive shell...")
+            run_repl()
+            return 0
+        else:
+            # One-liner command execution
+            try:
+                result = run_command(args.shell)
+                if result is not None:
+                    print(result)
+                return 0
+            except Exception as e:
+                logger.error(f"Shell command failed: {e}")
+                return 1
+
     if args.list_frameworks:
         setup_logging(args.verbose, args.quiet)
         builtin_defs_dir = get_builtin_definitions_dir()
@@ -686,14 +782,31 @@ def main() -> int:
     if args.graph_only or args.graph_output:
         output_path = args.graph_output
         try:
-            if output_path.suffix == '.svg':
-                success = graph.export_svg(output_path)
-                if not success:
-                    dot_path = output_path.with_suffix('.dot')
-                    graph.export_dot(dot_path)
-                    logger.info(f"Exported to {dot_path} (install graphviz for SVG)")
-            else:
-                graph.export_dot(output_path)
+            # Try using new visualization module
+            from hpctainers.api.visualization import visualize_dependency_graph
+
+            format = output_path.suffix[1:] if output_path.suffix else 'svg'
+            logger.info(f"Generating dependency graph visualization ({format})...")
+
+            try:
+                rendered_path = visualize_dependency_graph(
+                    graph,
+                    output_path.with_suffix(''),
+                    format=format
+                )
+                logger.info(f"Dependency graph saved to: {rendered_path}")
+            except ImportError:
+                # Fallback to old method if graphviz not available
+                logger.warning("graphviz not available, using fallback export")
+                if output_path.suffix == '.svg':
+                    success = graph.export_svg(output_path)
+                    if not success:
+                        dot_path = output_path.with_suffix('.dot')
+                        graph.export_dot(dot_path)
+                        logger.info(f"Exported to {dot_path} (install graphviz for SVG)")
+                else:
+                    graph.export_dot(output_path)
+
             if args.graph_only:
                 logger.info("Graph-only mode, exiting without building")
                 return 0
