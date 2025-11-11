@@ -694,13 +694,15 @@ def main() -> int:
         if args.config and args.config.exists():
             try:
                 config_parser = load_config(args.config)
-                extra_basics_path = config_parser.get_extra_basics_path()
-                if extra_basics_path:
+                extra_basics_paths = config_parser.get_extra_basics_paths()
+                total_loaded = 0
+                for extra_basics_path in extra_basics_paths:
                     count = load_external_definitions(extra_basics_path, cache_dir)
-                    if count > 0:
-                        logger.info(f"Loaded {count} external definitions")
-                    if any(cache_dir.glob('*.def')):
-                        extra_dirs.append(cache_dir)
+                    total_loaded += count
+                if total_loaded > 0:
+                    logger.info(f"Loaded {total_loaded} external definitions")
+                if any(cache_dir.glob('*.def')):
+                    extra_dirs.append(cache_dir)
             except Exception as e:
                 logger.warning(f"Could not load config for extra frameworks: {e}")
                 if args.verbose:
@@ -736,11 +738,13 @@ def main() -> int:
     (containers_dir / "projects").mkdir(parents=True, exist_ok=True)
 
     try:
-        extra_basics_path = config_parser.get_extra_basics_path()
-        if extra_basics_path:
+        extra_basics_paths = config_parser.get_extra_basics_paths()
+        total_defs_loaded = 0
+        for extra_basics_path in extra_basics_paths:
             defs_loaded = load_external_definitions(extra_basics_path, external_defs_dir)
-            if defs_loaded > 0:
-                logger.info(f"Loaded {defs_loaded} external definitions to {external_defs_dir}")
+            total_defs_loaded += defs_loaded
+        if total_defs_loaded > 0:
+            logger.info(f"Loaded {total_defs_loaded} external definitions to {external_defs_dir}")
     except Exception as e:
         logger.error(f"Failed to load external definitions: {e}")
         if args.verbose:

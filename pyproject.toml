@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hpctainers"
-version = "2.0.0"
+version = "2.0.1"
 description = "HPC Container Build System for Apptainer with OpenFOAM, MPI, and scientific computing focus"
 readme = "README.md"
 requires-python = ">=3.10"

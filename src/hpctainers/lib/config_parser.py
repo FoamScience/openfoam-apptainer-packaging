@@ -159,7 +159,7 @@ class PullConfig(BaseModel):
 
 class ContainersConfig(BaseModel):
     """Top-level containers configuration."""
-    extra_basics: Optional[Union[str, Path]] = None
+    extra_basics: Optional[Union[str, Path, List[Union[str, Path]]]] = None
     basic: Dict[str, BasicContainerConfig] = Field(default_factory=dict)
     projects: Dict[str, ProjectContainerConfig] = Field(default_factory=dict)
 
@@ -252,18 +252,21 @@ class ConfigParser:
             raise ValueError("Configuration not parsed. Call parse() first.")
         return self.config.pull
 
-    def get_extra_basics_path(self) -> Optional[str]:
-        """Get path to extra basics definitions.
+    def get_extra_basics_paths(self) -> List[str]:
+        """Get paths to extra basics definitions.
 
         Returns:
-            Path/URL to extra basics directory/repo, or None if not specified
+            List of paths/URLs to extra basics directories/repos
         """
         if not self.config:
             raise ValueError("Configuration not parsed. Call parse() first.")
-
-        if self.config.containers.extra_basics:
-            return str(self.config.containers.extra_basics)
-        return None
+        if not self.config.containers.extra_basics:
+            return []
+        extra_basics = self.config.containers.extra_basics
+        if isinstance(extra_basics, list):
+            return [str(path) for path in extra_basics]
+        else:
+            return [str(extra_basics)]
 
 
 def load_config(config_path: Union[str, Path]) -> ConfigParser:
