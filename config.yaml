@@ -1,8 +1,10 @@
 # containers section defines what containers to build
 containers:
 
-  # This is either a local path, or a Git repo URI
+  # This is either a local path, a Git repo URI, or a list of paths/URIs
   # to load your own basic definition files; they can then be used in framework.definition below
+  # Single path: extra_basics: /tmp/extrabasics
+  # Multiple paths: extra_basics: [/tmp/extrabasics1, /tmp/extrabasics2, https://github.com/user/repo.git]
   #extra_basics: /tmp/extrabasics
   
   # This section builds base containers in containers/basic
@@ -66,7 +68,7 @@ containers:
 
 # pull section sets pull paramters
 pull:
-  try_to_pull: false # Do we try to pull from registry?
+  try_to_pull: true
   protocol: "oras" # docker, or library as Pull protocol
   scope: "ghcr.io/foamscience" # so oras://ghcr.io/foamscience/<container-name>:latest is used
 
