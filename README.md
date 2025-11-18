@@ -11,6 +11,13 @@ This is a project to automate building HPC-ready containers (originally for Open
 using `apptainer`.
 
 > [!NOTE]
+> **Migration from Ansible**: The previous Ansible-based system (`build.yaml`) has been
+> replaced with a Python-based "container-as-code" system. The `config.yaml`
+> format and container paths remain **fully backward compatible** so no changes are required
+> to your existing configurations. `v1` tag still has the ansible-based mechanism if you want it
+
+
+> [!NOTE]
 > Brought to you by SDL Energy Conversion from
 > <a href="https://www.nhr4ces.de/simulation-and-data-labs/sdl-energy-conversion/">
 > <img src="https://www.itc.rwth-aachen.de/global/show_picture.asp?id=aaaaaaaabvbpmgd&w=223&q=77" alt="NHR4CES" height="50px" style="vertical-align:middle"/>
@@ -19,6 +26,15 @@ using `apptainer`.
 > <a href="https://ianus-simulation.de/en/">
 > <img src="https://ianus-simulation.de/wp-content/uploads/2023/04/IANUS_Logo_color_color_bold_RGB.png" alt="IANUS SIMULATION" height="30px" style="vertical-align:middle"/>
 > </a>.
+
+<!-- mtoc-start:cb9ef56 -->
+
+* [Idea](#idea)
+* [Highlighted features](#highlighted-features)
+* [Quick Instructions](#quick-instructions)
+* [Migration from Ansible-based mechanism (v1 -> v2)](#migration-from-ansible-based-mechanism-v1---v2)
+
+<!-- mtoc-end:cb9ef56 -->
 
 ## Idea
 
@@ -35,22 +51,23 @@ Automated workflows to:
 1. A JSON Database of container metadata, with full control at the hands of the container maintainer.
 1. Maintaining definition files for your projects can be done in your own repos.
 1. Loading your own repositories of base framework container definitions works seamlessly.
+1. Container-as-code capabilities offering a python API to create containers as well as
+   a REPL shell
 
 ## Quick Instructions
 
 ```bash
 sudo add-apt-repository -y ppa:apptainer/ppa
 sudo apt install -y apptainer
-pip install ansible
-ansible-playbook build.yaml --extra-vars "original_dir=$PWD" --extra-vars "@config.yaml"
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uvx hpctainers --config config.yaml
 ```
 
 > [!TIP]
-> `ansible` is a nice tool to automate builds and make sure your host system has the required
-> dependencies to be able to build the containers. The configuration file and base definitions
-> provided serve as examples to build OpenFOAM containers.
+> The build system uses Python 3.10+ with `uv` for dependency management. The configuration
+> file and base definitions provided serve as examples to build OpenFOAM containers.
 
-The ansible command (by default) will:
+The build command (by default) will:
 - Create the following tree in the current working folder:
 ```
 containers/
@@ -66,33 +83,62 @@ containers/
   pull it from [ghcr.io](https://ghcr.io) if possible
 - Build a test project container, to make sure MPI works alright in OpenFOAM containers
 
-Check the [docs.md](docs.md) for details on how the configuration file
-is expected to be structured.
+- Check the [docs.md](docs.md) for details on how the configuration file is expected to be structured.
+- Check the [api-docs.md](api-docs.md) for details on how to use hpctainer's python API, and
+  the associated REPL shell.
 
 Here is a simplified sequence diagram describing the expected workflow:
 ```mermaid
 sequenceDiagram
   actor User
-  participant Ansible Playbook
+  participant Build System
+  participant Build Cache
   participant GHCR
   participant Docker Hub
+  participant Host Env
+  participant Temp File
   participant Local Build
   participant MPI Container
   participant Framework Container
   participant Project Container
 
-  User->>Ansible Playbook: Start playbook with config.yaml
-  Ansible Playbook->>GHCR: Check if MPI Container exists
-  GHCR-->>Ansible Playbook: MPI Container not found
-  Ansible Playbook->>Docker Hub: Pull Ubuntu image
-  Docker Hub-->>Ansible Playbook: Ubuntu image pulled
-  Ansible Playbook->>Local Build: Build MPI Container on top of Ubuntu image
+  User->>Build System: Start build.py with config.yaml
+  Build System->>Build Cache: Check if MPI Container cached
+  Build Cache-->>Build System: Not cached or content changed
+  Build System->>GHCR: Try to pull MPI Container
+  GHCR-->>Build System: MPI Container not found
+  Build System->>Docker Hub: Pull Ubuntu image
+  Docker Hub-->>Build System: Ubuntu image pulled
+  Build System->>Local Build: Build MPI Container on top of Ubuntu image
   Local Build-->>MPI Container: MPI Container created
-  Ansible Playbook->>GHCR: Check if Framework Container exists
-  GHCR-->>Ansible Playbook: Framework Container not found
-  Ansible Playbook->>Local Build: Build Framework Container on top of MPI Container
+  Build System->>Build Cache: Update cache entry
+  Build System->>GHCR: Try to pull Framework Container
+  GHCR-->>Build System: Framework Container not found
+  Build System->>Local Build: Build Framework Container on top of MPI Container
   Local Build-->>Framework Container: Framework Container created
-  Ansible Playbook->>Local Build: Build Project Container on top of Framework Container with build args
-  Local Build-->>Project Container: Project Container created
-  Project Container-->>User: Container ready for use
+  Build System->>Build Cache: Update cache entry
+  Note over Build System,Host Env: Environment Secrets Injection (Optional)
+  Build System->>Host Env: Read environment secrets (if specified)
+  Host Env-->>Build System: Return secret values
+  Build System->>Temp File: Create temp file with secrets
+  Temp File-->>Build System: Container-specific path
+  Build System->>Local Build: Build Project Container with bind-mounted secrets
+  Local Build->>Project Container: Bind-mount temp file to /tmp/hpctainers_build_env_<name>.sh
+  Project Container->>Project Container: Source secrets in %post, then remove
+  Local Build-->>Project Container: Project Container created (secrets removed)
+  Build System->>Temp File: Clean up temp file from host
+  Build System->>Build Cache: Update cache entry
+  Project Container-->>User: Container ready for use (no secrets persisted)
+```
+
+
+## Migration from Ansible-based mechanism (v1 -> v2)
+
+The `config.yaml` format is **fully backward compatible**. Simply replace the build command:
+```bash
+# Old (Ansible)
+ansible-playbook build.yaml --extra-vars="original_dir=$PWD" --extra-vars="@config.yaml"
+
+# New (Python)
+uvx hpctainers --config config.yaml
 ```
