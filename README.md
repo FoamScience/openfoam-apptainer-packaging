@@ -32,14 +32,6 @@ using `apptainer`.
 * [Idea](#idea)
 * [Highlighted features](#highlighted-features)
 * [Quick Instructions](#quick-instructions)
-* [New Features (in v2)](#new-features-in-v2)
-  * [1. **Intelligent Build Caching**](#1-intelligent-build-caching)
-  * [2. **Parallel Builds**](#2-parallel-builds)
-  * [3. **Dependency Graph Visualization**](#3-dependency-graph-visualization)
-  * [4. **Enhanced CLI**](#4-enhanced-cli)
-  * [5. **Better Error Handling**](#5-better-error-handling)
-  * [6. **Container-as-Code Philosophy**](#6-container-as-code-philosophy)
-  * [7. **Secure Environment Secrets**](#7-secure-environment-secrets)
 * [Migration from Ansible-based mechanism (v1 -> v2)](#migration-from-ansible-based-mechanism-v1---v2)
 
 <!-- mtoc-end:cb9ef56 -->
@@ -59,6 +51,8 @@ Automated workflows to:
 1. A JSON Database of container metadata, with full control at the hands of the container maintainer.
 1. Maintaining definition files for your projects can be done in your own repos.
 1. Loading your own repositories of base framework container definitions works seamlessly.
+1. Container-as-code capabilities offering a python API to create containers as well as
+   a REPL shell
 
 ## Quick Instructions
 
@@ -89,8 +83,9 @@ containers/
   pull it from [ghcr.io](https://ghcr.io) if possible
 - Build a test project container, to make sure MPI works alright in OpenFOAM containers
 
-Check the [docs.md](docs.md) for details on how the configuration file
-is expected to be structured.
+- Check the [docs.md](docs.md) for details on how the configuration file is expected to be structured.
+- Check the [api-docs.md](api-docs.md) for details on how to use hpctainer's python API, and
+  the associated REPL shell.
 
 Here is a simplified sequence diagram describing the expected workflow:
 ```mermaid
@@ -136,70 +131,6 @@ sequenceDiagram
   Project Container-->>User: Container ready for use (no secrets persisted)
 ```
 
-## New Features (in v2)
-
-### 1. **Intelligent Build Caching**
-- Content-based hashing of definition files and build arguments
-- Automatic rebuild detection when definitions change
-- Cascade rebuilds when base containers change
-- Persistent cache stored in `.build-cache/`
-- Use `--force-rebuild` to ignore cache
-
-### 2. **Parallel Builds**
-- Automatically builds independent containers concurrently
-- Respects dependency order (MPI → Framework → Project)
-- Configurable worker count: `--parallel-jobs N`
-- Significant speedup for multiple container builds
-
-### 3. **Dependency Graph Visualization**
-- Generates visual dependency graphs in SVG/DOT format
-- Shows build order and parallel groups
-- Highlights cached containers
-- Use `--graph-only` to visualize without building
-
-### 4. **Enhanced CLI**
-```bash
-# Standard build
-uvx hpctainers
-
-# Force rebuild everything
-uvx hpctainers --config config.yaml --force-rebuild
-
-# Dry run (show what would be built)
-uvx hpctainers --config config.yaml --dry-run
-
-# Generate dependency graph
-uvx hpctainers config.yaml --graph-only
-
-# Build with 4 parallel jobs
-uvx hpctainers config.yaml --parallel-jobs 4
-
-# Disable registry pulls
-uvx hpctainers config.yaml --no-pull
-
-# Verbose output for debugging
-uvx hpctainers config.yaml --verbose
-```
-
-### 5. **Better Error Handling**
-- Per-container log files (same as before)
-- Detailed error messages with context
-- Graceful failure handling
-- Build continues for independent containers after failures
-
-### 6. **Container-as-Code Philosophy**
-- Pure Python implementation
-- Type-safe configuration parsing with Pydantic
-- Modular library structure for extensibility
-
-### 7. **Secure Environment Secrets**
-- Inject host environment variables securely into container builds
-- Variables sourced during %post and automatically removed
-- No secrets persisted in final container image
-- Container-specific temp file paths prevent conflicts
-- Works across all three build methods (Python API, Shell, YAML)
-- YAML: Use `env_` or `ENV_` prefix in build_args
-- See [examples/environment_secrets.md](examples/environment_secrets.md) for usage
 
 ## Migration from Ansible-based mechanism (v1 -> v2)
 
