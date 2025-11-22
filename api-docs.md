@@ -295,7 +295,7 @@ Save results to variables:
 
 ```bash
 $mpi = container | from ubuntu:24.04 | with-mpi openmpi 4.1.5
-$foam = $mpi | with-framework openfoam v2406
+$foam = $mpi | with-framework com-openfoam 2506
 $foam | build
 ```
 
