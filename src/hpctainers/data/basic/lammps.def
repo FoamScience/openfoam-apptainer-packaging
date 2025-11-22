@@ -58,9 +58,9 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
 %runscript
     #!/bin/bash
     if [ $# -eq 0 ]; then
-        /bin/bash
+        exec /bin/bash
     else
-        /bin/bash -c "$@"
+        exec "$@"
     fi
 
 %labels

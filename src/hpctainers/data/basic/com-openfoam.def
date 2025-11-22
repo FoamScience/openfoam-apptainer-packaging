@@ -22,6 +22,7 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
 
 %post -c /bin/bash
     DEBIAN_FRONTEND=noninteractive
+    apt-get update
     if [[ {{ FRAMEWORK_GIT_REF }} == "default" ]]; then
         curl https://dl.openfoam.com/add-debian-repo.sh | bash
         apt-get -y install --no-install-recommends openfoam{{ FRAMEWORK_VERSION }}-dev python3
@@ -58,9 +59,9 @@ From: containers/basic/{{ BASE_CONTAINER }}.sif
 %runscript
     #!/bin/bash
     if [ $# -eq 0 ]; then
-        /bin/bash
+        exec /bin/bash
     else
-        /bin/bash -c "$@"
+        exec "$@"
     fi
 
 %labels

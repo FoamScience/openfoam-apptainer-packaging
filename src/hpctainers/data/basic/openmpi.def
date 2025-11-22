@@ -55,28 +55,49 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
 
 %environment
     #!/bin/bash
-    jq -r '.. | .source_script? // empty' /apps.json | while read -r script; do
-      if [[ -f "$script" ]]; then
-        source "$script"
+    _envfile=$(mktemp)
+    _scriptfile=$(mktemp)
+
+    # Get all source scripts
+    jq -r '.. | .source_script? // empty' /apps.json > "$_scriptfile"
+
+    # Source them in bash and dump the environment
+    /bin/bash -c "
+        while IFS= read -r script; do
+          if [ -f \"\$script\" ]; then
+            source \"\$script\"
+          fi
+        done < \"$_scriptfile\"
+        export -p
+    " > "$_envfile"
+
+    # Import the environment into current shell
+    . "$_envfile"
+
+    # Handle python environments
+    jq -r '.. | .python_env? // empty' /apps.json > "$_scriptfile"
+    while IFS= read -r script; do
+      if [ -d "$script" ]; then
+        . "$script/bin/activate"
       fi
-    done
-    jq -r '.. | .python_env? // empty' /apps.json | while read -r script; do
-      if [[ -d "$script" ]]; then
-        source "$script/bin/activate"
+    done < "$_scriptfile"
+
+    # Handle uv environments
+    jq -r '.. | .uv_env? // empty' /apps.json > "$_scriptfile"
+    while IFS= read -r script; do
+      if [ -f "$script" ]; then
+        . "$script"
       fi
-    done
-    jq -r '.. | .uv_env? // empty' /apps.json | while read -r script; do
-      if [[ -f "$script" ]]; then
-        source "$script"
-      fi
-    done
+    done < "$_scriptfile"
+
+    rm -f "$_envfile" "$_scriptfile"
 
 %runscript
     #!/bin/bash
     if [ $# -eq 0 ]; then
-        /bin/bash
+        exec /bin/bash
     else
-        /bin/bash -c "$@"
+        exec "$@"
     fi
 
 %labels
