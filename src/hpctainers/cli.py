@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -61,7 +62,8 @@ def check_apptainer_version() -> bool:
             check=True
         )
         version_str = result.stdout.strip().split()[-1]
-        major, minor, patch = map(int, version_str.split('.')[:3])
+        parts = version_str.split('.')[:3]
+        major, minor, patch = (int(re.match(r'\d+', p).group()) for p in parts)
         if (major, minor, patch) >= (1, 3, 1):
             logger.info(f"Apptainer version: {version_str}")
             return True
