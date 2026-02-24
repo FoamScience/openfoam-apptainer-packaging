@@ -981,7 +981,7 @@ def main() -> int:
                         basic_config = node.metadata['basic_config']
                     try:
                         runner = TestRunner(container_path)
-                        from lib.testing import TestDefinition, TestType
+                        from hpctainers.lib.testing import TestDefinition, TestType
                         basic_tests = [
                             TestDefinition(
                                 name="apps_json_exists",
@@ -1044,7 +1044,7 @@ def main() -> int:
                                    f"High={scan_result.get_severity_count('HIGH')}, "
                                    f"Medium={scan_result.get_severity_count('MEDIUM')}, "
                                    f"Low={scan_result.get_severity_count('LOW')}")
-                        from lib.security_scanning import save_scan_report, Severity
+                        from hpctainers.lib.security_scanning import save_scan_report, Severity
                         report_path = args.report_dir / f"{container_name}-security.json"
                         save_scan_report(scan_result, report_path)
                         container_report.security_scan = {
