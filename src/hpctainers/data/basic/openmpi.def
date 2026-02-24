@@ -25,14 +25,29 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
     DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get -y install --no-install-recommends \
-        curl gcc g++ gfortran make file jq ca-certificates bzip2 git openssh-client
+        curl gcc g++ gfortran make file jq ca-certificates bzip2 git openssh-client \
+        libibverbs-dev \
+        librdmacm-dev \
+        rdma-core \
+        ibverbs-utils \
+        infiniband-diags \
+        libucx-dev \
+        ucx-utils \
+        libnuma-dev \
+        libpmix-dev
     export MPI_VERSION={{ MPI_VERSION }}
     ompi_short=$(echo {{ MPI_VERSION }} | cut -d '.' -f1-2)
     export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v$ompi_short/openmpi-{{ MPI_VERSION }}.tar.bz2"
     export OMPI_DIR=/opt/ompi
     mkdir -p $OMPI_DIR /tmp/ompi
     cd /tmp/ompi && curl -O $OMPI_URL && tar -xjf openmpi-$MPI_VERSION.tar.bz2
-    cd /tmp/ompi/openmpi-$MPI_VERSION && ./configure --prefix=$OMPI_DIR && make -j$(nproc) install
+    cd /tmp/ompi/openmpi-$MPI_VERSION && ./configure --prefix=$OMPI_DIR \
+        --with-ucx \
+        --with-verbs \
+        --with-pmix \
+        --with-hwloc \
+        --with-libevent \
+        && make -j$(nproc) install
     export PATH=$OMPI_DIR/bin:$PATH
     export LD_LIBRARY_PATH=$OMPI_DIR/lib:$LD_LIBRARY_PATH
     echo "export OMPI_DIR=/tmp/ompi"  >> ${OMPI_DIR}/bashrc
