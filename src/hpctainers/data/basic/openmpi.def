@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 #
-# Create Ubuntu image with OpenMPI
+# Create Ubuntu image with OpenMPI (from source) and InfiniBand/UCX support
 #
 # Build
 #   apptainer build ompi.sif openmpi.def
@@ -31,10 +31,13 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
         rdma-core \
         ibverbs-utils \
         infiniband-diags \
+        ibacm \
         libucx-dev \
         ucx-utils \
         libnuma-dev \
-        libpmix-dev
+        libpmix-dev \
+        libslurm-dev \
+        slurm-client
     export MPI_VERSION={{ MPI_VERSION }}
     ompi_short=$(echo {{ MPI_VERSION }} | cut -d '.' -f1-2)
     export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v$ompi_short/openmpi-{{ MPI_VERSION }}.tar.bz2"
@@ -45,15 +48,17 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
         --with-ucx \
         --with-verbs \
         --with-pmix \
+        --with-slurm \
         --with-hwloc \
         --with-libevent \
         && make -j$(nproc) install
     export PATH=$OMPI_DIR/bin:$PATH
     export LD_LIBRARY_PATH=$OMPI_DIR/lib:$LD_LIBRARY_PATH
-    echo "export OMPI_DIR=/tmp/ompi"  >> ${OMPI_DIR}/bashrc
+    echo "export OMPI_DIR=/opt/ompi"  >> ${OMPI_DIR}/bashrc
     echo "export PATH=${OMPI_DIR}/bin:${PATH}" >> ${OMPI_DIR}/bashrc
     echo "export LD_LIBRARY_PATH=${OMPI_DIR}/lib/openmpi:${LD_LIBRARY_PATH}" >>  ${OMPI_DIR}/bashrc
     echo "export MANPATH=${OMPI_DIR}/share/man:${MANPATH}" >> ${OMPI_DIR}/bashrc
+    rm -rf /tmp/ompi
     echo '{}' > /apps.json
     jq --arg app openmpi \
         '.[$app] |= if . == null then
@@ -117,5 +122,5 @@ From: {{ OS_DISTRO }}:{{ OS_VERSION }}
 
 %labels
     Maintainer Mohammed Elwardi Fadeli
-    Description Ubuntu-based OpenMPI image
+    Description Ubuntu-based OpenMPI (from source) image with InfiniBand/UCX/SLURM support
     AppsFile /apps.json
